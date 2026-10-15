@@ -101,6 +101,7 @@ RENDER_FRAMES = """async (o) => {
         const bytes = Uint8Array.from(atob(o.audio), c => c.charCodeAt(0));
         speech.envelope = await speech.buildEnvelope(new Blob([bytes], { type: o.mime }));
         speech.timeline = o.timeline;
+        speech.timelineSimple = o.timelineSimple;
         speech.timelineTalkingHead = o.timelineTalkingHead;
         st.talk.player.style = o.style;
         const blink = st.blinker.update.bind(st.blinker);
@@ -249,6 +250,7 @@ class StudioPage:
         while True:
             result = self.js(RENDER_FRAMES, {
                 'audio': speech['audio'], 'mime': speech['mime'], 'timeline': speech['visemes'],
+                'timelineSimple': speech.get('visemesSimple', speech['visemes']),
                 'timelineTalkingHead': speech.get('visemesTalkingHead', speech['visemes']),
                 'mode': mode, 'fps': fps, 'width': width, 'height': height, 'background': background,
                 'style': style, 'watermark': watermark, 'from': start, 'count': batch,

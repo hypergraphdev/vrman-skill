@@ -1,6 +1,6 @@
 {
   "name": "vrman",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "VRMan 数字人：描述或照片生成 3D 头像（GLB），文本加照片或头像生成说话视频（MP4）",
   "author": { "name": "hypergraphdev" },
   "homepage": "https://github.com/hypergraphdev/vrman-skill",

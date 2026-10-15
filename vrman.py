@@ -21,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
 from vrman_agent.catalog import PARTS  # noqa: E402
 
+STYLES = ['default', 'simple', 'talkinghead']
+
 
 def load_spec(value):
     """--spec 可以是 JSON 字符串，也可以是 JSON 文件路径"""
@@ -92,8 +94,9 @@ def parser():
     who.add_argument('--spec', help='按清单现组装一个 3D 头像来说话')
     t.add_argument('--text', required=True)
     t.add_argument('--voice', default='zh-CN-XiaoxiaoNeural', help='发音人（voices 命令列出）')
-    t.add_argument('--rate', default='+0%', help='语速，如 -20%、+20%')
-    t.add_argument('--style', choices=['default', 'talkinghead'], default='default', help='口型播放方式')
+    t.add_argument('--rate', default='+0%', help='语速，如 -20%%、+20%%')
+    t.add_argument('--style', choices=STYLES, default='default',
+                   help='口型播放方式：default 复韵母在字里滑过去；simple 优化精简，每字一个口型；talkinghead 相邻口型叠加')
     t.add_argument('--width', type=int, default=720, help='画面宽度（像素）')
     t.add_argument('--background', default='#1a1d29', help='3D 头像的背景色')
     t.add_argument('--no-watermark', action='store_true', help='不加「AI 生成」角标')
