@@ -27,17 +27,22 @@ EXPORT_GLB = """async (slim) => {
 }"""
 
 # 按清单组装形象：picks 是 {页面类型: 素材编号}，clear 是要清空的类型
-APPLY_SPEC = """async ({ picks, clear, skin, hair, gender, region }) => {
+APPLY_SPEC = """async ({ picks, clear, skin, hair, gender, region, morphs }) => {
     const st = window.studio, b = st.builder;
     await st.useActor('custom');
     if (gender) b.setFaceStyle({ gender, region: region || 'asian' });
     for (const type of clear) b.clearSlot(type);
     for (const [type, id] of Object.entries(picks)) {
         const asset = b.getAssets(type).find(a => a.id === id);
-        if (asset) await b.applyAsset(asset, type);
+        if (!asset) throw new Error(`当前素材库找不到 ${type}: ${id}`);
+        await b.applyAsset(asset, type, { strict: true });
     }
     if (skin) b.setColor('skin', skin);
     if (hair) b.setColor('hair', hair);
+    for (const [name,value] of Object.entries(morphs || {})) {
+        if (!b.library.controls?.some(c => c.name === name)) throw new Error(`当前素材库不支持精调：${name}`);
+        b.setControl(name, value);
+    }
 }"""
 
 # 当前形象用了哪些素材（素材名），给 Agent 回报
@@ -56,12 +61,12 @@ PORTRAIT = """async ({ width, height, background, target }) => {
     const shot = await window.__vrmanShot(THREE, { width, height, background, target });
     shot.render();
     const url = shot.renderer.domElement.toDataURL('image/png');
-    shot.renderer.dispose();
+    shot.dispose();
     return url;
 }"""
 
 # 页面里的公共小工具：给 3D 形象搭一个离屏机位（头肩取景）
-SHOT_HELPER = """() => { window.__vrmanShot = (THREE, { width, height, background, target }) => {
+SHOT_HELPER = """() => { window.__vrmanShot = async (THREE, { width, height, background, target }) => {
     const st = window.studio;
     const root = target === 'preview' ? st.preview.root : st.builder.avatarRoot;
     root.updateWorldMatrix(true, true);
@@ -81,14 +86,30 @@ SHOT_HELPER = """() => { window.__vrmanShot = (THREE, { width, height, backgroun
     const fit = (box.max.y - box.min.y + shoulders) * 1.08;
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = st.stage.renderer.toneMapping;
+    renderer.toneMappingExposure = st.stage.renderer.toneMappingExposure;
     renderer.setSize(width, height, false);
     renderer.setClearColor(background, 1);
+    let environment = null;
+    if (st.stage.scene.environment) {
+        // 精细版靠环境反射出质感。舞台上的反射贴图属于另一个 WebGL 上下文，这个离屏渲染器用不了，照样再做一份
+        const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+        const generator = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment();
+        environment = generator.fromScene(room, .04);
+        room.dispose();
+        generator.dispose();
+    }
     const camera = new THREE.PerspectiveCamera(30, width / height, 0.01, 100);
     const distance = fit / 2 / Math.tan(THREE.MathUtils.degToRad(15)) / Math.min(1, width / height);
     const aim = center.y - shoulders / 2;
     camera.position.set(center.x, aim, box.max.z + distance);
     camera.lookAt(center.x, aim, center.z);
-    return { renderer, camera, render: () => renderer.render(st.stage.scene, camera) };
+    return { renderer, camera, render: () => {
+        const previous = st.stage.scene.environment;
+        st.stage.scene.environment = environment?.texture || null;
+        try { renderer.render(st.stage.scene, camera); }
+        finally { st.stage.scene.environment = previous; }
+    }, dispose: () => { environment?.dispose(); renderer.dispose(); } };
 }; }"""
 
 # 逐帧渲染说话画面。第一批时准备好音量包络、时间轴，并停掉页面自己的逐帧驱动，改由这里按固定时间推进；
@@ -106,6 +127,10 @@ RENDER_FRAMES = """async (o) => {
         speech.timelineNatural = o.timelineNatural;
         st.talk.player.style = o.style;
         const blink = st.blinker.update.bind(st.blinker);
+        // 眨眼原本按页面时钟排（可能排在十几秒后），画面时间却从 0 开始：先睁开眼、清掉进行中的眨眼，
+        // 再按画面时间重排——当作上一次眨眼在开头前 1.8 秒，第一次落在 0.4～4.2 秒，一句一段的短片段也有机会眨
+        st.blinker.finish();
+        st.blinker.schedule(-1800);
         st.talk.update = () => {};
         st.blinker.update = () => {};
         st.actor.update = () => {};
@@ -125,7 +150,7 @@ RENDER_FRAMES = """async (o) => {
             const THREE = await import('three');
             out.width = o.width;
             out.height = Math.round(o.height / 2) * 2;
-            const shot = window.__vrmanShot(THREE, { width: out.width, height: out.height, background: o.background, target: o.mode });
+            const shot = await window.__vrmanShot(THREE, { width: out.width, height: out.height, background: o.background, target: o.mode });
             draw = (ctx) => { shot.render(); ctx.drawImage(shot.renderer.domElement, 0, 0); };
         }
         R = window.__vrmanRender = { out, draw, blink, setNow: v => { now = v; },
@@ -181,15 +206,19 @@ def token_cookie(base_url, token):
 class StudioPage:
     """一个打开的工作室页面。workspace 是 avatar / photo / voice"""
 
-    def __init__(self, browser, base_url, workspace='avatar', token=None):
+    def __init__(self, browser, base_url, workspace='avatar', token=None, library='original'):
         # browser 是 Browser 时每页一个新上下文，关页面时一起关；是共用的持久上下文时只关页面
         self.owns_context = hasattr(browser, 'new_context')
         context = browser.new_context(viewport=VIEWPORT) if self.owns_context else browser
         if token:
             context.add_cookies([token_cookie(base_url, token)])
         self.page = context.new_page()
-        self.page.goto(f'{base_url}/index.html#{workspace}', timeout=60000)
+        # 每次都在网址里写明素材版本：浏览器会记住上次选的版本，不写的话上一次的选择会带到这一次
+        self.page.goto(f'{base_url}/index.html?library={library}#{workspace}', timeout=60000)
         self.page.wait_for_function(READY, timeout=90000)
+        if self.js('() => window.studio.builder.libraryId') != library:
+            self.close()
+            raise RuntimeError(f'素材版本 {library} 现在用不了（服务上还没有它的模型），可以先用 original')
         self.page.evaluate(SHOT_HELPER)
 
     def js(self, script, arg=None):
@@ -222,8 +251,9 @@ class StudioPage:
 
     # ---------- 3D 形象 ----------
 
-    def apply_spec(self, picks, clear, skin=None, hair=None, gender=None, region=None):
-        self.js(APPLY_SPEC, {'picks': picks, 'clear': clear, 'skin': skin, 'hair': hair, 'gender': gender, 'region': region})
+    def apply_spec(self, picks, clear, skin=None, hair=None, gender=None, region=None, morphs=None):
+        self.js(APPLY_SPEC, {'picks': picks, 'clear': clear, 'skin': skin, 'hair': hair, 'gender': gender,
+                             'region': region, 'morphs': morphs or {}})
         self.wait_idle()
 
     def worn(self):

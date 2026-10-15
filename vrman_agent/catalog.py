@@ -23,6 +23,9 @@ PARTS = {
     'facewear': ('facewear', 'facewear', None),
     'shirt': ('shirt', 'shirt', None),
     'outfit': ('outfit', 'outfit', None),
+    'watch': ('watch', 'watch', None),
+    'handheld': ('handheld', 'handheld', None),
+    'skin_detail': ('skinDetail', 'skinDetail', None),
     'faceshape': ('faceshape', 'faceshapes', None),
     'eyeshape': ('eyeshape', 'eyeshapes', None),
     'noseshape': ('noseshape', 'noseshapes', None),
@@ -31,18 +34,39 @@ PARTS = {
 STYLE_FIELDS = ('hairStyle', 'beardStyle', 'eyebrowStyle', 'eyeStyle', 'glassesStyle')
 PALETTES = {'skin': 'skinTones', 'hair': 'hairColors'}
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
+# 素材版本：原版和精细版。精细版的清单在 data/asset-libraries/<版本>/，模型要服务器上同步了才能用
+LIBRARIES = ('original', 'refined-v2', 'refined-v3', 'refined-v4')
+DEFAULT_LIBRARY = 'original'
 
 
-@lru_cache(maxsize=1)
-def catalog():
-    return json.loads(project_text('dhuman-assets.json'))
+def check_library(library):
+    if library not in LIBRARIES:
+        raise ValueError(f'未知素材版本：{library}（可选：{"、".join(LIBRARIES)}）')
+    return library
 
 
-def assets_of(part):
+@lru_cache(maxsize=len(LIBRARIES))
+def catalog(library=DEFAULT_LIBRARY):
+    check_library(library)
+    path = 'dhuman-assets.json' if library == DEFAULT_LIBRARY else f'data/asset-libraries/{library}/catalog.json'
+    return json.loads(project_text(path))
+
+
+@lru_cache(maxsize=len(LIBRARIES))
+def controls(library=DEFAULT_LIBRARY):
+    """这个版本能精调的五官（清单里 morphs 的键）：[{name, label, part, min, max}]；原版和 v2 没有"""
+    if check_library(library) == DEFAULT_LIBRARY:
+        return []
+    manifest = json.loads(project_text(f'data/asset-libraries/{library}/manifest.json'))
+    return [{'name': c['name'], 'label': c['label'], 'part': c['type'], 'min': c['min'], 'max': c['max']}
+            for c in manifest.get('controls', [])]
+
+
+def assets_of(part, library=DEFAULT_LIBRARY):
     if part not in PARTS:
         raise ValueError(f'不认识的部位：{part}（可用：{", ".join(PARTS)}）')
     category, _, match = PARTS[part]
-    return [a for a in catalog()[category] if not match or match(a['name'])]
+    return [a for a in catalog(library).get(category, []) if not match or match(a['name'])]
 
 
 def words_of(asset):
@@ -61,13 +85,13 @@ def summary(asset):
             'tags': asset.get('tags', []), 'icon': asset.get('icon', '')}
 
 
-def search_assets(part, query='', gender=None, limit=8):
+def search_assets(part, query='', gender=None, limit=8, library=DEFAULT_LIBRARY):
     """按标签词打分：精确命中一个标签算 1 分，只是包含算半分；同分时标签少、更专一的在前。
     性别不符的不要（通用款都要）"""
     terms = [t for t in re.split(r'[\s,，、]+', query.lower()) if t]
     scored = []
-    for asset in assets_of(part):
-        if gender and asset.get('gender') and asset['gender'] != gender:
+    for asset in assets_of(part, library):
+        if gender and asset.get('gender') not in (None, '', 'any', gender):
             continue
         words = words_of(asset)
         score = sum(1 if term in words else 0.5 if any(term in w for w in words) else 0 for term in terms)
@@ -78,23 +102,23 @@ def search_assets(part, query='', gender=None, limit=8):
     return [summary(asset) for _, _, asset in scored[:limit]]
 
 
-def find_asset(part, value, gender=None):
+def find_asset(part, value, gender=None, library=DEFAULT_LIBRARY):
     """value 是素材名（如 hair-28）就直接用，否则当检索词取最匹配的一款"""
-    exact = next((a for a in assets_of(part) if a['name'] == value), None)
+    exact = next((a for a in assets_of(part, library) if a['name'] == value), None)
     if exact:
         return exact
-    found = search_assets(part, value, gender, limit=1)
+    found = search_assets(part, value, gender, limit=1, library=library)
     if not found:
         raise ValueError(f'{part} 没找到匹配「{value}」的素材，可以先用 search_assets 看看有哪些标签')
-    return next(a for a in assets_of(part) if a['name'] == found[0]['name'])
+    return next(a for a in assets_of(part, library) if a['name'] == found[0]['name'])
 
 
-def tag_vocabulary(part=None, top=60):
+def tag_vocabulary(part=None, top=60, library=DEFAULT_LIBRARY):
     """各部位常用的标签词，告诉 Agent 描述该怎么写"""
     parts = [part] if part else list(PARTS)
     out = {}
     for name in parts:
-        counter = Counter(w for a in assets_of(name) for w in words_of(a))
+        counter = Counter(w for a in assets_of(name, library) for w in words_of(a))
         out[name] = [word for word, _ in counter.most_common(top)]
     return out
 

@@ -5,6 +5,7 @@
   python3 vrman.py avatar --photo me.jpg --gender female --consent --out me.glb
   python3 vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
   python3 vrman.py talk --text "你好" --avatar a.glb --out hello.mp4
+  python3 vrman.py avatar --spec '{"gender":"male","hair":"short"}' --library refined-v4 --out a.glb
   python3 vrman.py assets hair "long wavy" --gender female
   python3 vrman.py tags glasses
   python3 vrman.py voices
@@ -20,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
 from vrman_agent.api import STYLES  # noqa: E402
-from vrman_agent.catalog import PARTS  # noqa: E402
+from vrman_agent.catalog import DEFAULT_LIBRARY, LIBRARIES, PARTS  # noqa: E402
 
 
 def load_spec(value):
@@ -29,28 +30,34 @@ def load_spec(value):
     return json.loads(path.read_text(encoding='utf-8') if path.exists() else value)
 
 
+def spec_of(args):
+    """清单里没写素材版本时，用 --library 的"""
+    return {'library': args.library, **load_spec(args.spec)} if args.spec else None
+
+
 def cmd_avatar(args):
     with VRMan() as vrman:
         if args.photo:
             return vrman.avatar_from_photo(args.photo, args.out, args.gender, args.region, args.photo_face,
-                                           not args.full, args.preview, args.consent)
-        return vrman.avatar_from_spec(load_spec(args.spec), args.out, not args.full, args.preview)
+                                           not args.full, args.preview, args.consent, args.library)
+        return vrman.avatar_from_spec(spec_of(args), args.out, not args.full, args.preview)
 
 
 def cmd_talk(args):
     with VRMan() as vrman:
         return vrman.talking_video(args.text, args.out, photo=args.photo, avatar=args.avatar,
-                                   spec=load_spec(args.spec) if args.spec else None, voice=args.voice, rate=args.rate,
+                                   spec=spec_of(args), voice=args.voice, rate=args.rate,
                                    style=args.style, width=args.width, background=args.background,
                                    watermark=not args.no_watermark, consent=args.consent)
 
 
 def cmd_assets(args):
-    return catalog.search_assets(args.part, args.query, args.gender, args.limit)
+    return catalog.search_assets(args.part, args.query, args.gender, args.limit, library=args.library)
 
 
 def cmd_tags(args):
-    return {'tags': catalog.tag_vocabulary(args.part), 'colors': catalog.palettes()}
+    return {'tags': catalog.tag_vocabulary(args.part, library=args.library), 'colors': catalog.palettes(),
+            'controls': catalog.controls(args.library)}
 
 
 def cmd_voices(_args):
@@ -69,6 +76,11 @@ def cmd_whoami(args):
     return remote.whoami(args.url)
 
 
+def add_library(command):
+    command.add_argument('--library', choices=LIBRARIES, default=DEFAULT_LIBRARY,
+                         help='素材版本：original 原版（默认，最快）；refined-v2/v3/v4 精细版，越新越细、模型越大')
+
+
 def parser():
     p = argparse.ArgumentParser(description='VRMan：照片或描述 → 3D 头像，文本 → 说话视频')
     sub = p.add_subparsers(dest='command', required=True)
@@ -84,6 +96,7 @@ def parser():
     a.add_argument('--preview', help='另存一张头肩预览图 PNG')
     a.add_argument('--consent', action='store_true', help='确认照片是本人或已获授权')
     a.add_argument('--out', required=True)
+    add_library(a)
     a.set_defaults(run=cmd_avatar)
 
     t = sub.add_parser('talk', help='生成说话视频 MP4')
@@ -102,6 +115,7 @@ def parser():
     t.add_argument('--no-watermark', action='store_true', help='不加「AI 生成」角标')
     t.add_argument('--consent', action='store_true', help='确认照片是本人或已获授权')
     t.add_argument('--out', required=True)
+    add_library(t)
     t.set_defaults(run=cmd_talk)
 
     s = sub.add_parser('assets', help='按标签搜素材')
@@ -109,10 +123,12 @@ def parser():
     s.add_argument('query', nargs='?', default='')
     s.add_argument('--gender', choices=['female', 'male'])
     s.add_argument('--limit', type=int, default=8)
+    add_library(s)
     s.set_defaults(run=cmd_assets)
 
-    g = sub.add_parser('tags', help='列出各部位的标签词和调色板')
+    g = sub.add_parser('tags', help='列出各部位的标签词、调色板，以及这个素材版本能精调的五官')
     g.add_argument('part', nargs='?', choices=list(PARTS))
+    add_library(g)
     g.set_defaults(run=cmd_tags)
 
     v = sub.add_parser('voices', help='列出可用的发音人')
