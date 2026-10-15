@@ -103,6 +103,7 @@ RENDER_FRAMES = """async (o) => {
         speech.timeline = o.timeline;
         speech.timelineSimple = o.timelineSimple;
         speech.timelineTalkingHead = o.timelineTalkingHead;
+        speech.timelineNatural = o.timelineNatural;
         st.talk.player.style = o.style;
         const blink = st.blinker.update.bind(st.blinker);
         st.talk.update = () => {};
@@ -252,6 +253,7 @@ class StudioPage:
                 'audio': speech['audio'], 'mime': speech['mime'], 'timeline': speech['visemes'],
                 'timelineSimple': speech.get('visemesSimple', speech['visemes']),
                 'timelineTalkingHead': speech.get('visemesTalkingHead', speech['visemes']),
+                'timelineNatural': speech.get('visemesNatural', speech['visemes']),
                 'mode': mode, 'fps': fps, 'width': width, 'height': height, 'background': background,
                 'style': style, 'watermark': watermark, 'from': start, 'count': batch,
             })

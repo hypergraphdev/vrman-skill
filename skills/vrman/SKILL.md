@@ -83,7 +83,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "你好" --photo me.jpg --con
 - `--voice`：发音人，`vrman.py voices` 列出全部。默认 `zh-CN-XiaoxiaoNeural`（晓晓，普通话女声），男声可用 `zh-CN-YunxiNeural`（云希）。
 - `--rate`：语速，如 `-20%`、`+20%`。
 - `--style`：口型播放方式。`default`（默认）复韵母在一个字里滑过去；`simple` 优化精简，每字一个口型、靠字与字之间的过渡；
-  `talkinghead` 相邻口型叠加。
+  `talkinghead` 相邻口型叠加；`natural` 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢。
 - `--width`：画面宽度，默认 720。3D 头像是方形画面，照片按原图比例。
 - `--background '#ffffff'`：3D 头像的背景色。
 

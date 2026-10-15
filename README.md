@@ -106,7 +106,16 @@ claude plugin install vrman@vrman-skill
 | `list_voices` | 可用的发音人（目前开放微软的免费发音人） |
 | `create_avatar_from_description` | 清单 → GLB，附一张头肩预览图，Agent 能直接看到效果 |
 | `create_avatar_from_photo` | 照片 → GLB（生成相似形象 / 照片直出），附预览图 |
-| `render_talking_video` | 文本 → MP4，说话的可以是照片、GLB 头像或现组装的头像 |
+| `render_talking_video` | 文本 → MP4，说话的可以是照片、GLB 头像或现组装的头像；`style` 选口型方式（见下） |
+
+**口型方式**（命令行 `--style`、MCP 的 `style`）：
+
+| 值 | 名字 | 特点 |
+|---|---|---|
+| `default` | 默认 | 复韵母在一个字里滑过去（好 = a→o） |
+| `simple` | 优化精简 | 每个字一个口型，靠字与字之间的过渡 |
+| `talkinghead` | TalkingHead | 相邻口型叠加过渡 |
+| `natural` | 真人平滑 | 嘴唇只在 b/p/m/f 时合拢，下巴按声母抬落：不会一直张着，也不会每个字都抖 |
 
 不指定输出路径时，结果写到 `~/vrman-output/`。
 

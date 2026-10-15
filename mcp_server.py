@@ -113,8 +113,8 @@ async def render_talking_video(text: str, out_path: str | None = None, photo_pat
                                consent: bool = False) -> dict:
     """文本 → 说话视频 MP4（H.264 + AAC）。说话的三选一：photo_path（照片说话，需 consent=true）、
     avatar_path（GLB 头像，可用 create_avatar_* 的结果）、spec（按清单现组装 3D 头像）。
-    style：default（复韵母在一个字里滑过去）、simple（优化精简：每字一个口型，靠字与字之间的过渡）或
-    talkinghead（相邻口型叠加）；rate 如 "-20%"、"+20%"；watermark 默认在右下角加「AI 生成」。"""
+    style：default（复韵母在一个字里滑过去）、simple（优化精简：每字一个口型，靠字与字之间的过渡）、
+    talkinghead（相邻口型叠加）或 natural（真人平滑：下巴按声母抬落，嘴唇只在 b/p/m/f 时合拢）；rate 如 "-20%"、"+20%"；watermark 默认在右下角加「AI 生成」。"""
     video = output_path(out_path, '.mp4')
 
     def work():

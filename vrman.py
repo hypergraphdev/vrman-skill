@@ -19,9 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
+from vrman_agent.api import STYLES  # noqa: E402
 from vrman_agent.catalog import PARTS  # noqa: E402
-
-STYLES = ['default', 'simple', 'talkinghead']
 
 
 def load_spec(value):
@@ -96,7 +95,8 @@ def parser():
     t.add_argument('--voice', default='zh-CN-XiaoxiaoNeural', help='发音人（voices 命令列出）')
     t.add_argument('--rate', default='+0%', help='语速，如 -20%%、+20%%')
     t.add_argument('--style', choices=STYLES, default='default',
-                   help='口型播放方式：default 复韵母在字里滑过去；simple 优化精简，每字一个口型；talkinghead 相邻口型叠加')
+                   help='口型播放方式：default 复韵母在字里滑过去；simple 优化精简，每字一个口型；talkinghead 相邻口型叠加；'
+                        'natural 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢')
     t.add_argument('--width', type=int, default=720, help='画面宽度（像素）')
     t.add_argument('--background', default='#1a1d29', help='3D 头像的背景色')
     t.add_argument('--no-watermark', action='store_true', help='不加「AI 生成」角标')

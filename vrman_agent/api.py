@@ -20,6 +20,9 @@ from .server import Service
 DEFAULT_VOICE = 'zh-CN-XiaoxiaoNeural'
 DEFAULT_BACKGROUND = '#1a1d29'
 WATERMARK = 'AI 生成'
+# 口型播放方式：default 复韵母在一个字里滑过去；simple 优化精简，每字一个口型；talkinghead 相邻口型叠加；
+# natural 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢
+STYLES = ('default', 'simple', 'talkinghead', 'natural')
 DEFAULT_EYEBROW = {'female': 'female thin high', 'male': 'male thick low'}
 CONSENT_REQUIRED = '用照片生成的内容对应真人：请确认照片是本人或已获授权，并传 consent=True'
 
@@ -84,6 +87,8 @@ class VRMan:
         """文本 → 说话视频。说话的是 photo（照片）、avatar（GLB 文件）或 spec（按清单现组装的 3D 头像）之一"""
         if sum(x is not None for x in (photo, avatar, spec)) != 1:
             raise ValueError('photo、avatar、spec 三选一')
+        if style not in STYLES:
+            raise ValueError(f'不认识的口型方式：{style}（可选：{"、".join(STYLES)}）')
         if photo is not None:
             check_consent(consent)
         photo, avatar = existing(photo, '照片'), existing(avatar, 'GLB 头像')
