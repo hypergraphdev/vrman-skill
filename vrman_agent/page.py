@@ -10,6 +10,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from .catalog import profile_of
+
 VIEWPORT = {'width': 1440, 'height': 900}
 # 连线上服务时浏览器缓存存在这里：第二次起素材只确认没变（304），不重新下载
 CACHE_DIR = Path.home() / '.cache' / 'vrman' / 'chrome'
@@ -52,7 +54,7 @@ WORN = """() => {
         const asset = id && b.getAssets(type).find(a => a.id === id);
         if (asset) out[type] = asset.name;
     }
-    return { parts: out, skin: b.skinColor, hair: b.hairColor };
+    return { parts: out, skin: b.skinColor, hair: b.hairColor, profile: b.library.profile };
 }"""
 
 # 离屏渲染一张头肩像（3D 形象或导入的 GLB），返回 PNG 的 dataURL
@@ -204,19 +206,21 @@ def token_cookie(base_url, token):
 
 
 class StudioPage:
-    """一个打开的工作室页面。workspace 是 avatar / photo / voice"""
+    """一个打开的工作室页面。workspace 是 avatar / photo / voice，profile 是 adult 成人 / child 儿童"""
 
-    def __init__(self, browser, base_url, workspace='avatar', token=None, library='refined-current'):
+    def __init__(self, browser, base_url, workspace='avatar', token=None, library='refined-current', profile=None):
+        profile = profile_of(library, profile)
         # browser 是 Browser 时每页一个新上下文，关页面时一起关；是共用的持久上下文时只关页面
         self.owns_context = hasattr(browser, 'new_context')
         context = browser.new_context(viewport=VIEWPORT) if self.owns_context else browser
         if token:
             context.add_cookies([token_cookie(base_url, token)])
         self.page = context.new_page()
-        # 每次都在网址里写明素材版本：浏览器会记住上次选的版本，不写的话上一次的选择会带到这一次
-        self.page.goto(f'{base_url}/index.html?library={library}#{workspace}', timeout=60000)
+        # 每次都在网址里写明素材库和人物类型：浏览器会记住上次选的，不写的话上一次的选择会带到这一次
+        self.page.goto(f'{base_url}/index.html?library={library}&profile={profile}#{workspace}', timeout=60000)
         self.page.wait_for_function(READY, timeout=90000)
-        if self.js('() => window.studio.builder.libraryId') != 'refined-current':
+        loaded = self.js('() => [window.studio.builder.libraryId, window.studio.builder.library.profile]')
+        if loaded != ['refined-current', profile]:
             self.close()
             raise RuntimeError(f'统一素材库现在用不了，请检查服务上的当前模型文件')
         self.page.evaluate(SHOT_HELPER)

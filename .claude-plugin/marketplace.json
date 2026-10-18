@@ -8,7 +8,7 @@
     {
       "name": "vrman",
       "source": ".",
-      "description": "VRMan 数字人：描述或照片生成 3D 头像（GLB），文本加照片或头像生成说话视频（MP4）"
+      "description": "VRMan 数字人：描述或照片生成 3D 头像（GLB，成人或儿童），文本加照片或头像生成说话视频（MP4）"
     }
   ]
 }

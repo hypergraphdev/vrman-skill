@@ -6,6 +6,7 @@
   python3 vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
   python3 vrman.py talk --text "你好" --avatar a.glb --out hello.mp4
   python3 vrman.py avatar --spec '{"gender":"male","hair":"short","morphs":{"v3_eye_spacing":0.3}}' --out a.glb
+  python3 vrman.py avatar --profile child --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out kid.glb
   python3 vrman.py assets hair "long wavy" --gender female
   python3 vrman.py tags glasses
   python3 vrman.py voices
@@ -21,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
 from vrman_agent.api import STYLES  # noqa: E402
-from vrman_agent.catalog import DEFAULT_LIBRARY, LEGACY_LIBRARIES, LIBRARIES, PARTS  # noqa: E402
+from vrman_agent.catalog import DEFAULT_LIBRARY, LEGACY_LIBRARIES, LIBRARIES, PARTS, PROFILES  # noqa: E402
 
 
 def load_spec(value):
@@ -31,15 +32,15 @@ def load_spec(value):
 
 
 def spec_of(args):
-    """清单里没写素材版本时，用 --library 的"""
-    return {'library': args.library, **load_spec(args.spec)} if args.spec else None
+    """清单里没写素材库、人物类型时，用 --library、--profile 的"""
+    return {'library': args.library, 'profile': args.profile, **load_spec(args.spec)} if args.spec else None
 
 
 def cmd_avatar(args):
     with VRMan() as vrman:
         if args.photo:
             return vrman.avatar_from_photo(args.photo, args.out, args.gender, args.region, args.photo_face,
-                                           not args.full, args.preview, args.consent, args.library)
+                                           not args.full, args.preview, args.consent, args.library, args.profile)
         return vrman.avatar_from_spec(spec_of(args), args.out, not args.full, args.preview)
 
 
@@ -52,12 +53,13 @@ def cmd_talk(args):
 
 
 def cmd_assets(args):
-    return catalog.search_assets(args.part, args.query, args.gender, args.limit, library=args.library)
+    return catalog.search_assets(args.part, args.query, args.gender, args.limit, library=args.library,
+                                 profile=args.profile)
 
 
 def cmd_tags(args):
-    return {'tags': catalog.tag_vocabulary(args.part, library=args.library), 'colors': catalog.palettes(),
-            'controls': catalog.controls(args.library)}
+    return {'tags': catalog.tag_vocabulary(args.part, library=args.library, profile=args.profile),
+            'colors': catalog.palettes(), 'controls': catalog.controls(args.library, args.profile)}
 
 
 def cmd_voices(_args):
@@ -79,6 +81,8 @@ def cmd_whoami(args):
 def add_library(command):
     command.add_argument('--library', choices=LIBRARIES + LEGACY_LIBRARIES, default=DEFAULT_LIBRARY, metavar='LIBRARY',
                          help='素材库：只有统一素材库 refined-current（默认，不用写）；旧版本名 original、refined-v2 等还认')
+    command.add_argument('--profile', choices=PROFILES,
+                         help='人物类型：adult 成人（默认）；child 儿童，用学龄儿童的头模、发型、衣服和五官')
 
 
 def parser():
@@ -126,7 +130,7 @@ def parser():
     add_library(s)
     s.set_defaults(run=cmd_assets)
 
-    g = sub.add_parser('tags', help='列出各部位的标签词、调色板，以及这个素材版本能精调的五官')
+    g = sub.add_parser('tags', help='列出各部位的标签词、调色板，以及能精调的五官')
     g.add_argument('part', nargs='?', choices=list(PARTS))
     add_library(g)
     g.set_defaults(run=cmd_tags)

@@ -44,18 +44,18 @@ class VRMan:
     def __exit__(self, *exc):
         return self.stack.__exit__(*exc)
 
-    def open(self, workspace='avatar', library=catalog.DEFAULT_LIBRARY):
-        return StudioPage(self.browser, self.server.url, workspace, self.server.token, catalog.check_library(library))
+    def open(self, workspace='avatar', library=catalog.DEFAULT_LIBRARY, profile=None):
+        return StudioPage(self.browser, self.server.url, workspace, self.server.token, library, profile)
 
     # ---------- 3D 头像 ----------
 
     def avatar_from_photo(self, photo, out, gender, region='asian', photo_face=False, slim=True,
-                          preview=None, consent=False, library=catalog.DEFAULT_LIBRARY):
+                          preview=None, consent=False, library=catalog.DEFAULT_LIBRARY, profile=None):
         """照片 → GLB。photo_face=False 是「生成相似 3D 形象」（按素材配），True 是「照片直出」（捏脸形、贴照片）。
-        library 是挑素材用的素材版本"""
+        profile 是用成人（adult）还是儿童（child）素材来配"""
         check_consent(consent)
         photo = existing(photo, '照片')
-        page = self.open('photo', library)
+        page = self.open('photo', library, profile)
         try:
             page.upload_photo(photo)
             page.generate(gender, region, photo_face)
@@ -65,8 +65,8 @@ class VRMan:
 
     def avatar_from_spec(self, spec, out, slim=True, preview=None):
         """清单 → GLB。spec 例：{"gender": "female", "hair": "long wavy", "hair_color": "栗色", "glasses": "round thin_frame"}，
-        可以带 library（素材版本）和 morphs（精调值）"""
-        page = self.open('avatar', spec_library(spec))
+        可以带 profile（adult 成人 / child 儿童）和 morphs（精调值）"""
+        page = self.open('avatar', *spec_library(spec))
         try:
             apply_spec(page, spec)
             return self.save_avatar(page, out, slim, preview)
@@ -97,7 +97,7 @@ class VRMan:
         photo, avatar = existing(photo, '照片'), existing(avatar, 'GLB 头像')
         require_ffmpeg()
         speech = self.synthesize(text, voice, rate)
-        page = self.open('photo' if photo else 'avatar', spec_library(spec) if spec else catalog.DEFAULT_LIBRARY)
+        page = self.open('photo' if photo else 'avatar', *spec_library(spec or {}))
         try:
             mode = prepare_speaker(page, photo, avatar, spec)
             frames, (w, h) = page.render_frames(speech, mode, width=width, height=width, background=background,
@@ -134,7 +134,9 @@ def existing(path, what):
 
 
 def spec_library(spec):
-    return catalog.check_library(spec.get('library', catalog.DEFAULT_LIBRARY))
+    """清单里的素材库和人物类型：(library, profile)"""
+    library = spec.get('library', catalog.DEFAULT_LIBRARY)
+    return library, catalog.profile_of(library, spec.get('profile'))
 
 
 def check_morphs(morphs):
@@ -147,8 +149,8 @@ def check_morphs(morphs):
 
 def apply_spec(page, spec):
     """把清单里每个部位的描述对到素材上，再交给页面组装（页面已按清单的素材版本打开）。值写 none 表示不要这个部位"""
-    spec = dict(spec)
-    library = catalog.check_library(spec.pop('library', catalog.DEFAULT_LIBRARY))
+    library, profile = spec_library(spec)
+    spec = {k: v for k, v in spec.items() if k not in ('library', 'profile')}
     morphs = check_morphs(spec.pop('morphs', {}))
     gender = spec.pop('gender', None)
     region = spec.pop('region', None)
@@ -160,11 +162,11 @@ def apply_spec(page, spec):
     for part, value in spec.items():
         page_type = catalog.PARTS[part][1] if part in catalog.PARTS else None
         if not page_type:
-            raise ValueError(f'不认识的部位：{part}（可用：gender、region、skin、hair_color、{"、".join(catalog.PARTS)}）')
+            raise ValueError(f'不认识的部位：{part}（可用：gender、region、profile、skin、hair_color、{"、".join(catalog.PARTS)}）')
         if str(value).lower() in ('none', '无', ''):
             clear.append(page_type)
         else:
-            picks[page_type] = catalog.find_asset(part, str(value), gender, library=library)['id']
+            picks[page_type] = catalog.find_asset(part, str(value), gender, library=library, profile=profile)['id']
     if 'outfit' in picks:
         clear.append('shirt')             # 套装和上衣同一个位置，有套装就不要上衣
     page.apply_spec(picks, clear, skin, hair, gender, region, morphs)

@@ -2,7 +2,7 @@
 
 让 Agent（Claude Code、Claude Desktop、Cursor 等）直接帮你做两件事：
 
-- **描述或照片 → 3D 头像**：「做一个栗色长卷发、戴圆框眼镜的女生头像」，得到一个能说话、会眨眼的 GLB 模型和一张预览图。
+- **描述或照片 → 3D 头像**：「做一个栗色长卷发、戴圆框眼镜的女生头像」「做一个扎高马尾、穿黄色卫衣的小女孩」，得到一个能说话、会眨眼的 GLB 模型和一张预览图。
 - **文本 + 照片或头像 → 说话视频**：「让这张照片说『欢迎来到发布会』」，得到一个对好口型的 MP4。
 
 装好后，在 Agent 里这样说就行：
@@ -112,6 +112,9 @@ claude plugin install vrman@vrman-skill
 能精调的五官（清单里写 `morphs`），还有手表、手机、皮肤细节。
 以前的版本名（命令行 `--library`、MCP 的 `library` 写 `original`、`refined-v2` 等）还认，旧命令照样能跑。
 
+**成人和儿童**（命令行 `--profile`、MCP 的 `profile`）：默认 `adult` 成人；`child` 儿童，用学龄儿童的头模、发型、衣服和五官。
+儿童只有整套衣服（`outfit`），没有上衣、胡子、妆容、手表手机；第一次用要再下载一百多 MB 的儿童头模。
+
 **口型方式**（命令行 `--style`、MCP 的 `style`）：
 
 | 值 | 名字 | 特点 |
@@ -137,12 +140,17 @@ python3 ~/vrman-skill/vrman.py talk --text "大家好" --avatar a.glb --out hell
 python3 ~/vrman-skill/vrman.py avatar --spec '{"gender":"male","hair":"v4-hair-03","morphs":{"v3_eye_spacing":0.3}}' --out m.glb --preview m.png
 ```
 
+```bash
+python3 ~/vrman-skill/vrman.py avatar --profile child --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out kid.glb --preview kid.png
+```
+
 还有 `tags`、`assets`、`voices`、`login`、`whoami` 几个命令，`--help` 可以看全部参数。
 头像清单的写法见 [skills/vrman/SKILL.md](skills/vrman/SKILL.md)。
 
 ## 使用规则
 
 - 用照片生成头像或视频，必须是**本人照片或已获本人授权**（命令行加 `--consent`，MCP 传 `consent=true`），否则直接报错。
+  照片里是未成年人时，要由监护人使用或得到监护人同意。
 - 视频右下角默认带「AI 生成」角标。对外发布时请保留，或用其他方式标明是 AI 生成的。
 
 ## 常见问题

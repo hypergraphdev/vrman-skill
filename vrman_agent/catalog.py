@@ -34,10 +34,13 @@ PARTS = {
 STYLE_FIELDS = ('hairStyle', 'beardStyle', 'eyebrowStyle', 'eyeStyle', 'glassesStyle')
 PALETTES = {'skin': 'skinTones', 'hair': 'hairColors'}
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
-# 素材库：只有统一素材库。旧版本名只为兼容旧命令：v6～v8 指库里的儿童素材，其他指成人素材
+# 素材库：只有统一素材库，里面分成人、儿童两类素材（profile）。
+# 旧版本名只为兼容旧命令：没写 profile 时 v6～v8 指儿童素材，其他指成人素材
 LIBRARIES = ('refined-current',)
 LEGACY_LIBRARIES = ('original', *(f'refined-v{i}' for i in range(2,9)))
+CHILD_LIBRARIES = ('refined-v6', 'refined-v7', 'refined-v8')
 DEFAULT_LIBRARY = 'refined-current'
+PROFILES = ('adult', 'child')
 
 
 def check_library(library):
@@ -46,31 +49,43 @@ def check_library(library):
     return library
 
 
-@lru_cache(maxsize=8)
-def catalog(library=DEFAULT_LIBRARY):
+def profile_of(library=DEFAULT_LIBRARY, profile=None):
+    """用成人还是儿童素材：写了 profile 就按它，没写时按版本名推（和页面的 libraryProfile 一样）"""
     check_library(library)
+    if profile is None:
+        return 'child' if library in CHILD_LIBRARIES else 'adult'
+    if profile not in PROFILES:
+        raise ValueError(f'不认识的人物类型：{profile}（可选：adult 成人、child 儿童）')
+    return profile
+
+
+def catalog(library=DEFAULT_LIBRARY, profile=None):
+    return profile_catalog(profile_of(library, profile))
+
+
+@lru_cache(maxsize=len(PROFILES))
+def profile_catalog(profile):
+    """一类人物能用的素材：没标 ageProfile 的素材两类都能用"""
     data = json.loads(project_text('data/asset-libraries/current/catalog.json'))
-    profile = 'child' if library in ('refined-v6','refined-v7','refined-v8') else 'adult'
     rows = {k:[a for a in v if a.get('ageProfile',profile)==profile] for k,v in data.items() if isinstance(v,list)}
     rows['byId'] = {a['id']:a for group in rows.values() for a in group}
     return rows
 
 
-@lru_cache(maxsize=len(LIBRARIES))
-def controls(library=DEFAULT_LIBRARY):
-    """能精调的五官（清单里 morphs 的键）：[{name, label, part, min, max}]"""
-    check_library(library)
+@lru_cache(maxsize=8)
+def controls(library=DEFAULT_LIBRARY, profile=None):
+    """能精调的五官（清单里 morphs 的键）：[{name, label, part, min, max}]，成人、儿童的取值范围不同"""
     main = json.loads(project_text('data/asset-libraries/current/manifest.json'))
-    manifest = main['profiles']['child' if library in ('refined-v6','refined-v7','refined-v8') else 'adult']
+    manifest = main['profiles'][profile_of(library, profile)]
     return [{'name': c['name'], 'label': c['label'], 'part': c['type'], 'min': c['min'], 'max': c['max']}
             for c in manifest.get('controls', [])]
 
 
-def assets_of(part, library=DEFAULT_LIBRARY):
+def assets_of(part, library=DEFAULT_LIBRARY, profile=None):
     if part not in PARTS:
         raise ValueError(f'不认识的部位：{part}（可用：{", ".join(PARTS)}）')
     category, _, match = PARTS[part]
-    return [a for a in catalog(library).get(category, []) if not match or match(a['name'])]
+    return [a for a in catalog(library, profile).get(category, []) if not match or match(a['name'])]
 
 
 def words_of(asset):
@@ -89,12 +104,12 @@ def summary(asset):
             'tags': asset.get('tags', []), 'icon': asset.get('icon', '')}
 
 
-def search_assets(part, query='', gender=None, limit=8, library=DEFAULT_LIBRARY):
+def search_assets(part, query='', gender=None, limit=8, library=DEFAULT_LIBRARY, profile=None):
     """按标签词打分：精确命中一个标签算 1 分，只是包含算半分；同分时标签少、更专一的在前。
     性别不符的不要（通用款都要）"""
     terms = [t for t in re.split(r'[\s,，、]+', query.lower()) if t]
     scored = []
-    for asset in assets_of(part, library):
+    for asset in assets_of(part, library, profile):
         if gender and asset.get('gender') not in (None, '', 'any', gender):
             continue
         words = words_of(asset)
@@ -106,23 +121,26 @@ def search_assets(part, query='', gender=None, limit=8, library=DEFAULT_LIBRARY)
     return [summary(asset) for _, _, asset in scored[:limit]]
 
 
-def find_asset(part, value, gender=None, library=DEFAULT_LIBRARY):
+def find_asset(part, value, gender=None, library=DEFAULT_LIBRARY, profile=None):
     """value 是素材名（如 hair-28）就直接用，否则当检索词取最匹配的一款"""
-    exact = next((a for a in assets_of(part, library) if a['name'] == value), None)
+    assets = assets_of(part, library, profile)
+    if not assets:
+        raise ValueError(f'这类人物没有 {part}（儿童只有整套衣服 outfit，没有 shirt、胡子、妆容、手表、手机、皮肤细节）')
+    exact = next((a for a in assets if a['name'] == value), None)
     if exact:
         return exact
-    found = search_assets(part, value, gender, limit=1, library=library)
+    found = search_assets(part, value, gender, limit=1, library=library, profile=profile)
     if not found:
         raise ValueError(f'{part} 没找到匹配「{value}」的素材，可以先用 search_assets 看看有哪些标签')
-    return next(a for a in assets_of(part, library) if a['name'] == found[0]['name'])
+    return next(a for a in assets if a['name'] == found[0]['name'])
 
 
-def tag_vocabulary(part=None, top=60, library=DEFAULT_LIBRARY):
+def tag_vocabulary(part=None, top=60, library=DEFAULT_LIBRARY, profile=None):
     """各部位常用的标签词，告诉 Agent 描述该怎么写"""
     parts = [part] if part else list(PARTS)
     out = {}
     for name in parts:
-        counter = Counter(w for a in assets_of(name, library) for w in words_of(a))
+        counter = Counter(w for a in assets_of(name, library, profile) for w in words_of(a))
         out[name] = [word for word, _ in counter.most_common(top)]
     return out
 
