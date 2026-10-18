@@ -15,7 +15,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py <命令> ...
 （不是以插件方式安装时，`${CLAUDE_PLUGIN_ROOT}` 换成 vrman-skill 仓库所在的目录。也可以直接用同名的 MCP 工具，参数一样。）
 
 工具会在本机开一个看不见的 Chrome，打开 VRMan 工作室页面完成组装、导出和逐帧渲染。页面、素材和语音合成来自 VRMan 服务（www.hg.network）。
-生成一个头像约 5 秒，第一次要下载素材会慢一些；视频耗时约等于语音时长加几秒。
+生成一个头像约 5 秒；第一次要下载素材（头模两百多 MB），要等几分钟，之后有本机缓存。视频耗时约等于语音时长加几秒。
 
 ## 0. 先登录（每台电脑一次）
 
@@ -29,23 +29,16 @@ python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py login
 token 存在 `~/.config/vrman/token`。`vrman.py whoami` 查看当前登录的是谁、用了多少。
 所有 www.hg.network 账号都能用（注册免费）；没有账号就请用户先到 www.hg.network 注册。
 
-## 选素材版本
+## 素材库
 
-所有命令都可以加 `--library`（MCP 工具是 `library` 参数），搜素材、列标签词、生成头像要用同一个版本：
-
-| 值 | 说明 |
-|---|---|
-| `original` | 原版（默认）：模型小、最快 |
-| `refined-v2` | 精细版：细丝头发、皮肤细节，加了亚洲发型和五官 |
-| `refined-v3` | 精细版 v3：再多一批亚洲发型、五官，可以精调五官（`morphs`） |
-| `refined-v4` | 精细版 v4：更真实的皮肤，加了手表、手机、皮肤细节，精调项最多 |
-
-用户要「更精细、更像真人」时用 `refined-v4`。精细版模型大，第一次生成要多下载一会儿。
+只有一个统一素材库（`refined-current`），不用选，命令里不用写 `--library`。
+它有精细头模、细丝头发、亚洲发型和五官、能精调的五官，还有手表、手机、皮肤细节。
+以前的版本名（`original`、`refined-v2` 等）还认，旧命令照样能跑，但新写的命令不要再加。
 
 ## 1. 按描述生成 3D 头像
 
 1. 先看各部位能用哪些标签词，以及肤色、发色调色板的名字：`vrman.py tags`，或者只看一个部位：`vrman.py tags hair`。
-   用精细版时加 `--library refined-v4`，结果里的 `controls` 是这个版本能精调的五官。
+   结果里的 `controls` 是能精调的五官（清单里 `morphs` 的键和取值范围）。
 2. 把用户的描述（中文也行）换成**英文标签词**，写成清单。拿不准的词先搜一下：`vrman.py assets hair "long wavy" --gender female`。
 3. 生成：
 
@@ -66,11 +59,10 @@ token 存在 `~/.config/vrman/token`。`vrman.py whoami` 查看当前登录的�
 | `skin`、`hair_color` | `#RRGGBB`，或调色板里的名字（如 `象牙`、`栗色`，见 `tags` 的 `colors`） |
 | `hair` `eyes` `eyebrow` `beard` `makeup` `glasses` `headwear` `facewear` `facemask` `shirt` `outfit` | 英文标签词或素材名；写 `"none"` 表示不要这个部位 |
 | `faceshape` `eyeshape` `noseshape` `lipshape` | 脸形、眼形、鼻形、唇形的标签词 |
-| `library` | 素材版本，见上面「选素材版本」；也可以用 `--library` |
-| `morphs` | v3、v4 的五官精调：`{"v3_eye_spacing": 0.3, "v2_jaw_width": -0.2}`，键和取值范围见 `tags` 的 `controls` |
-| `watch` `handheld` `skin_detail` | v4 才有：手表、手机、皮肤细节。手表、手机挂在手上，要穿全身套装（`outfit`）才看得到 |
+| `morphs` | 五官精调：`{"v3_eye_spacing": 0.3, "v2_jaw_width": -0.2}`，键和取值范围见 `tags` 的 `controls` |
+| `watch` `handheld` `skin_detail` | 手表、手机、皮肤细节。手表、手机挂在手上，要穿全身套装（`outfit`）才看得到 |
 
-`outfit` 是整套衣服，有它就不要 `shirt`。默认导出「说话精简版」（约 1 MB，只留口型和眨眼）。要带全部表情和捏脸通道的完整版，加 `--full`。
+`outfit` 是整套衣服，有它就不要 `shirt`。默认导出「说话精简版」（3 MB 以内，只留口型和眨眼）。要带全部表情和捏脸通道的完整版，加 `--full`。
 
 ## 2. 用照片生成 3D 头像
 
@@ -79,7 +71,6 @@ python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar --photo me.jpg --gender male --con
 ```
 
 - `--gender` 必填，填照片里那个人的性别；`--region asian|western` 选五官风格（默认 asian）。
-- `--library refined-v4` 用精细版的发型和五官来配，更细致。
 - 默认是「生成相似 3D 形象」：按照片挑最像的发型、肤色、五官比例。
 - 加 `--photo-face` 是「照片直出」：按照片捏脸形，并把照片贴到脸上，更像本人。
 
@@ -120,7 +111,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "你好" --photo me.jpg --con
 |---|---|
 | `token 无效或还没登录` | 请用户在终端运行上面的 login 命令 |
 | `还没开通 VRMan Agent` | 这个账号被管理员停用了，请用户联系管理员 |
-| `素材版本 … 现在用不了` | 服务上还没有这个版本的模型，先换 `original` |
+| `统一素材库现在用不了` | 服务上的模型文件出了问题，告诉用户稍后再试或联系管理员 |
 | `xxx 没找到匹配「…」的素材` | 用 `tags <部位>` 或 `assets <部位>` 看看有哪些词，换个说法 |
 | `不认识的发色/肤色` | 报错里列出了可用的名字，也可以直接写 `#RRGGBB` |
 | `需要 ffmpeg 合成视频` | 请用户自己安装：Mac 上 `brew install ffmpeg`，Ubuntu 上 `sudo apt install ffmpeg` |

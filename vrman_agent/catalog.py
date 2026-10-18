@@ -1,6 +1,6 @@
 """素材、颜色、发音人：按部位和标签搜素材，把「长卷发、栗色、圆框眼镜」这类描述对到具体素材上
 
-纯 Python，读 dhuman-assets.json、config.js、voices.js（在项目里直接读，单独装的客户端从服务上取），不需要浏览器。
+纯 Python，读统一素材库清单（data/asset-libraries/current/）、config.js、voices.js（在项目里直接读，单独装的客户端从服务上取），不需要浏览器。
 标签是英文词（见 tag_vocabulary），中文描述由调用的 Agent 自己换成这些词。
 """
 import json
@@ -34,30 +34,34 @@ PARTS = {
 STYLE_FIELDS = ('hairStyle', 'beardStyle', 'eyebrowStyle', 'eyeStyle', 'glassesStyle')
 PALETTES = {'skin': 'skinTones', 'hair': 'hairColors'}
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
-# 素材版本：原版和精细版。精细版的清单在 data/asset-libraries/<版本>/，模型要服务器上同步了才能用
-LIBRARIES = ('original', 'refined-v2', 'refined-v3', 'refined-v4')
-DEFAULT_LIBRARY = 'original'
+# 素材库：只有统一素材库。旧版本名只为兼容旧命令：v6～v8 指库里的儿童素材，其他指成人素材
+LIBRARIES = ('refined-current',)
+LEGACY_LIBRARIES = ('original', *(f'refined-v{i}' for i in range(2,9)))
+DEFAULT_LIBRARY = 'refined-current'
 
 
 def check_library(library):
-    if library not in LIBRARIES:
+    if library not in LIBRARIES + LEGACY_LIBRARIES:
         raise ValueError(f'未知素材版本：{library}（可选：{"、".join(LIBRARIES)}）')
     return library
 
 
-@lru_cache(maxsize=len(LIBRARIES))
+@lru_cache(maxsize=8)
 def catalog(library=DEFAULT_LIBRARY):
     check_library(library)
-    path = 'dhuman-assets.json' if library == DEFAULT_LIBRARY else f'data/asset-libraries/{library}/catalog.json'
-    return json.loads(project_text(path))
+    data = json.loads(project_text('data/asset-libraries/current/catalog.json'))
+    profile = 'child' if library in ('refined-v6','refined-v7','refined-v8') else 'adult'
+    rows = {k:[a for a in v if a.get('ageProfile',profile)==profile] for k,v in data.items() if isinstance(v,list)}
+    rows['byId'] = {a['id']:a for group in rows.values() for a in group}
+    return rows
 
 
 @lru_cache(maxsize=len(LIBRARIES))
 def controls(library=DEFAULT_LIBRARY):
-    """这个版本能精调的五官（清单里 morphs 的键）：[{name, label, part, min, max}]；原版和 v2 没有"""
-    if check_library(library) == DEFAULT_LIBRARY:
-        return []
-    manifest = json.loads(project_text(f'data/asset-libraries/{library}/manifest.json'))
+    """能精调的五官（清单里 morphs 的键）：[{name, label, part, min, max}]"""
+    check_library(library)
+    main = json.loads(project_text('data/asset-libraries/current/manifest.json'))
+    manifest = main['profiles']['child' if library in ('refined-v6','refined-v7','refined-v8') else 'adult']
     return [{'name': c['name'], 'label': c['label'], 'part': c['type'], 'min': c['min'], 'max': c['max']}
             for c in manifest.get('controls', [])]
 

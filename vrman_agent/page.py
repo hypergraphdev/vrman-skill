@@ -206,7 +206,7 @@ def token_cookie(base_url, token):
 class StudioPage:
     """一个打开的工作室页面。workspace 是 avatar / photo / voice"""
 
-    def __init__(self, browser, base_url, workspace='avatar', token=None, library='original'):
+    def __init__(self, browser, base_url, workspace='avatar', token=None, library='refined-current'):
         # browser 是 Browser 时每页一个新上下文，关页面时一起关；是共用的持久上下文时只关页面
         self.owns_context = hasattr(browser, 'new_context')
         context = browser.new_context(viewport=VIEWPORT) if self.owns_context else browser
@@ -216,9 +216,9 @@ class StudioPage:
         # 每次都在网址里写明素材版本：浏览器会记住上次选的版本，不写的话上一次的选择会带到这一次
         self.page.goto(f'{base_url}/index.html?library={library}#{workspace}', timeout=60000)
         self.page.wait_for_function(READY, timeout=90000)
-        if self.js('() => window.studio.builder.libraryId') != library:
+        if self.js('() => window.studio.builder.libraryId') != 'refined-current':
             self.close()
-            raise RuntimeError(f'素材版本 {library} 现在用不了（服务上还没有它的模型），可以先用 original')
+            raise RuntimeError(f'统一素材库现在用不了，请检查服务上的当前模型文件')
         self.page.evaluate(SHOT_HELPER)
 
     def js(self, script, arg=None):

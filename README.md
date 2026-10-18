@@ -22,7 +22,7 @@ flowchart LR
 
 - **照片只在你的电脑上处理**，不会上传。发到服务器的只有要念的文字。
 - 素材和语音合成来自 VRMan 服务，要用 www.hg.network 的账号登录（注册免费，所有账号都能用）。
-- 第一次运行要下载素材（几十 MB），之后有本机缓存，只确认有没有更新。
+- 第一次运行要下载素材（精细头模两百多 MB，要等几分钟），之后有本机缓存，只确认有没有更新。
 
 ## 安装
 
@@ -108,16 +108,9 @@ claude plugin install vrman@vrman-skill
 | `create_avatar_from_photo` | 照片 → GLB（生成相似形象 / 照片直出），附预览图 |
 | `render_talking_video` | 文本 → MP4，说话的可以是照片、GLB 头像或现组装的头像；`style` 选口型方式（见下） |
 
-**素材版本**（命令行 `--library`、MCP 的 `library`）：
-
-| 值 | 特点 |
-|---|---|
-| `original` | 原版（默认）：模型小、最快 |
-| `refined-v2` | 精细版：细丝头发、皮肤细节，加了亚洲发型和五官 |
-| `refined-v3` | 再多一批亚洲发型和五官，能精调五官（清单里写 `morphs`） |
-| `refined-v4` | 皮肤更真实，加了手表、手机、皮肤细节，精调项最多 |
-
-精细版模型大（一个头模二十多 MB），第一次生成会多下载一会儿，之后有本机缓存。
+**素材库**：只有一个统一素材库（`refined-current`），不用选。它有精细头模、细丝头发、亚洲发型和五官、
+能精调的五官（清单里写 `morphs`），还有手表、手机、皮肤细节。
+以前的版本名（命令行 `--library`、MCP 的 `library` 写 `original`、`refined-v2` 等）还认，旧命令照样能跑。
 
 **口型方式**（命令行 `--style`、MCP 的 `style`）：
 
@@ -141,7 +134,7 @@ python3 ~/vrman-skill/vrman.py talk --text "大家好" --avatar a.glb --out hell
 ```
 
 ```bash
-python3 ~/vrman-skill/vrman.py avatar --library refined-v4 --spec '{"gender":"male","hair":"v4-hair-03","morphs":{"v3_eye_spacing":0.3}}' --out v4.glb --preview v4.png
+python3 ~/vrman-skill/vrman.py avatar --spec '{"gender":"male","hair":"v4-hair-03","morphs":{"v3_eye_spacing":0.3}}' --out m.glb --preview m.png
 ```
 
 还有 `tags`、`assets`、`voices`、`login`、`whoami` 几个命令，`--help` 可以看全部参数。
@@ -158,7 +151,7 @@ python3 ~/vrman-skill/vrman.py avatar --library refined-v4 --spec '{"gender":"ma
 |---|---|
 | `token 无效或还没登录` | 运行 `vrman.py login` |
 | `还没开通 VRMan Agent` | 账号被管理员停用了，请联系管理员 |
-| `素材版本 … 现在用不了` | 服务上还没有这个版本的模型，先用 `original` |
+| `统一素材库现在用不了` | 服务上的模型文件出了问题，稍后再试或联系管理员 |
 | 找不到 Chrome | 运行 `python3 -m playwright install chromium` |
 | `需要 ffmpeg 合成视频` | 安装 ffmpeg |
 | 第一次很慢 | 在下载素材，第二次起会快很多 |

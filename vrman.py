@@ -5,7 +5,7 @@
   python3 vrman.py avatar --photo me.jpg --gender female --consent --out me.glb
   python3 vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
   python3 vrman.py talk --text "你好" --avatar a.glb --out hello.mp4
-  python3 vrman.py avatar --spec '{"gender":"male","hair":"short"}' --library refined-v4 --out a.glb
+  python3 vrman.py avatar --spec '{"gender":"male","hair":"short","morphs":{"v3_eye_spacing":0.3}}' --out a.glb
   python3 vrman.py assets hair "long wavy" --gender female
   python3 vrman.py tags glasses
   python3 vrman.py voices
@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
 from vrman_agent.api import STYLES  # noqa: E402
-from vrman_agent.catalog import DEFAULT_LIBRARY, LIBRARIES, PARTS  # noqa: E402
+from vrman_agent.catalog import DEFAULT_LIBRARY, LEGACY_LIBRARIES, LIBRARIES, PARTS  # noqa: E402
 
 
 def load_spec(value):
@@ -77,8 +77,8 @@ def cmd_whoami(args):
 
 
 def add_library(command):
-    command.add_argument('--library', choices=LIBRARIES, default=DEFAULT_LIBRARY,
-                         help='素材版本：original 原版（默认，最快）；refined-v2/v3/v4 精细版，越新越细、模型越大')
+    command.add_argument('--library', choices=LIBRARIES + LEGACY_LIBRARIES, default=DEFAULT_LIBRARY, metavar='LIBRARY',
+                         help='素材库：只有统一素材库 refined-current（默认，不用写）；旧版本名 original、refined-v2 等还认')
 
 
 def parser():
@@ -92,7 +92,7 @@ def parser():
     a.add_argument('--gender', choices=['female', 'male'], help='照片里的性别（用照片时必填）')
     a.add_argument('--region', choices=['asian', 'western'], default='asian', help='五官风格')
     a.add_argument('--photo-face', action='store_true', help='照片直出：按照片捏脸形、贴上照片（默认是按素材配）')
-    a.add_argument('--full', action='store_true', help='导出完整版（默认说话精简版，约 1 MB）')
+    a.add_argument('--full', action='store_true', help='导出完整版（默认说话精简版，3 MB 以内）')
     a.add_argument('--preview', help='另存一张头肩预览图 PNG')
     a.add_argument('--consent', action='store_true', help='确认照片是本人或已获授权')
     a.add_argument('--out', required=True)
