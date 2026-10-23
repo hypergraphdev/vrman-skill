@@ -1,17 +1,7 @@
 #!/usr/bin/env python3
-"""VRMan 命令行：照片或描述 → 3D 头像，文本 + 照片或头像 → 说话视频。结果以 JSON 打印，方便 Agent 读取
-
-  python3 vrman.py avatar --spec '{"gender":"female","hair":"long wavy","hair_color":"栗色"}' --out a.glb --preview a.png
-  python3 vrman.py avatar --photo me.jpg --gender female --consent --out me.glb
-  python3 vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
-  python3 vrman.py talk --text "你好" --avatar a.glb --out hello.mp4
-  python3 vrman.py avatar --spec '{"gender":"male","hair":"short","morphs":{"v3_eye_spacing":0.3}}' --out a.glb
-  python3 vrman.py avatar --profile child --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out kid.glb
-  python3 vrman.py assets hair "long wavy" --gender female
-  python3 vrman.py tags glasses
-  python3 vrman.py voices
-  python3 vrman.py login        用 www.hg.network 账号换 token（单独安装、连线上服务时先做一次）
-  python3 vrman.py whoami       查看当前 token 属于谁、用了多少
+"""Hello Genesis CLI: create characters, scenes, worlds and performances; export GLB/MP4.
+Results are printed as JSON. Use --help or <command> --help for options.
+Run login once when connecting an installed client to the hosted service.
 """
 import argparse
 import getpass
@@ -114,8 +104,8 @@ def cmd_voices(_args):
 
 def cmd_login(args):
     """在自己的终端里输入账号密码；密码只发给 hg.network 的登录接口，不保存"""
-    username = args.username or input('www.hg.network 用户名：').strip()
-    password = getpass.getpass('密码（输入时不显示）：', stream=sys.stderr)
+    username = args.username or input('www.hg.network username: ').strip()
+    password = getpass.getpass('Password (hidden): ', stream=sys.stderr)
     return remote.login(username, password, args.url)
 
 
@@ -125,49 +115,49 @@ def cmd_whoami(args):
 
 def add_library(command):
     command.add_argument('--library', choices=LIBRARIES + LEGACY_LIBRARIES, default=DEFAULT_LIBRARY, metavar='LIBRARY',
-                         help='素材库：只有统一素材库 refined-current（默认，不用写）；旧版本名 original、refined-v2 等还认')
+                         help='Current library: refined-current (default); legacy aliases are still accepted')
     command.add_argument('--profile', choices=PROFILES,
-                         help='人物类型：adult 成人（默认）；child 儿童，用学龄儿童的头模、发型、衣服和五官')
+                         help='Character profile: adult (default) or child (school-age head, hair, clothing and features)')
 
 
 def parser():
-    p = argparse.ArgumentParser(description='Hello Genesis：人物、场景、世界、剧情、存档与 GLB/MP4 导出')
+    p = argparse.ArgumentParser(description='Hello Genesis: characters, scenes, worlds, performances, saved projects and GLB/MP4 export')
     sub = p.add_subparsers(dest='command', required=True)
 
-    a = sub.add_parser('avatar', help='生成 3D 头像 GLB')
+    a = sub.add_parser('avatar', help='Create a 3D avatar GLB')
     source = a.add_mutually_exclusive_group(required=True)
-    source.add_argument('--photo', help='照片路径（需 --consent、--gender）')
-    source.add_argument('--spec', help='头像清单：JSON 字符串或文件，如 {"gender":"male","hair":"short","glasses":"round"}')
-    a.add_argument('--gender', choices=['female', 'male'], help='照片里的性别（用照片时必填）')
-    a.add_argument('--region', choices=['asian', 'western'], default='asian', help='五官风格')
-    a.add_argument('--photo-face', action='store_true', help='照片直出：按照片捏脸形、贴上照片（默认是按素材配）')
-    a.add_argument('--full', action='store_true', help='导出完整版（默认说话精简版，3 MB 以内）')
-    a.add_argument('--preview', help='另存一张头肩预览图 PNG')
-    a.add_argument('--consent', action='store_true', help='确认照片是本人或已获授权')
+    source.add_argument('--photo', help='Photo path (requires --consent and --gender)')
+    source.add_argument('--spec', help='Avatar spec as inline JSON or a JSON file')
+    a.add_argument('--gender', choices=['female', 'male'], help='Photo subject gender (required with --photo)')
+    a.add_argument('--region', choices=['asian', 'western'], default='asian', help='Facial style')
+    a.add_argument('--photo-face', action='store_true', help='Shape and texture the face from the photo (default matches library parts)')
+    a.add_argument('--full', action='store_true', help='Retain all facial channels (default keeps speech and blink morphs)')
+    a.add_argument('--preview', help='Save a portrait preview PNG')
+    a.add_argument('--consent', action='store_true', help='Confirm the photo is yours or you have permission')
     a.add_argument('--out', required=True)
     add_library(a)
     a.set_defaults(run=cmd_avatar)
 
-    t = sub.add_parser('talk', help='生成说话视频 MP4')
+    t = sub.add_parser('talk', help='Render a talking video MP4')
     who = t.add_mutually_exclusive_group(required=True)
-    who.add_argument('--photo', help='照片说话（需 --consent）')
-    who.add_argument('--avatar', help='GLB 头像说话')
-    who.add_argument('--spec', help='按清单现组装一个 3D 头像来说话')
+    who.add_argument('--photo', help='Animate a photo (requires --consent)')
+    who.add_argument('--avatar', help='Animate a GLB avatar')
+    who.add_argument('--spec', help='Assemble a speaking avatar from a spec')
     t.add_argument('--text', required=True)
-    t.add_argument('--voice', default='zh-CN-XiaoxiaoNeural', help='发音人（voices 命令列出）')
-    t.add_argument('--rate', default='+0%', help='语速，如 -20%%、+20%%')
+    t.add_argument('--voice', default='zh-CN-XiaoxiaoNeural', help='Voice ID (listed by the voices command)')
+    t.add_argument('--rate', default='+0%', help='Speech rate, for example -20%% or +20%%')
     t.add_argument('--style', choices=STYLES, default='default',
-                   help='口型播放方式：default 复韵母在字里滑过去；simple 优化精简，每字一个口型；talkinghead 相邻口型叠加；'
-                        'natural 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢')
-    t.add_argument('--width', type=int, default=720, help='画面宽度（像素）')
-    t.add_argument('--background', default='#1a1d29', help='3D 头像的背景色')
-    t.add_argument('--no-watermark', action='store_true', help='不加「AI 生成」角标')
-    t.add_argument('--consent', action='store_true', help='确认照片是本人或已获授权')
+                   help='Lip sync: default transitions through diphthongs; simple uses one shape per syllable; talkinghead blends adjacent shapes; '
+                        'natural smooths jaw movement and closes lips for b/p/m/f')
+    t.add_argument('--width', type=int, default=720, help='Video width in pixels')
+    t.add_argument('--background', default='#1a1d29', help='Background color for the 3D avatar')
+    t.add_argument('--no-watermark', action='store_true', help='Omit the AI-generated label')
+    t.add_argument('--consent', action='store_true', help='Confirm the photo is yours or you have permission')
     t.add_argument('--out', required=True)
     add_library(t)
     t.set_defaults(run=cmd_talk)
 
-    s = sub.add_parser('assets', help='按标签搜素材')
+    s = sub.add_parser('assets', help='Search avatar parts by tags')
     s.add_argument('part', choices=list(PARTS))
     s.add_argument('query', nargs='?', default='')
     s.add_argument('--gender', choices=['female', 'male'])
@@ -175,20 +165,20 @@ def parser():
     add_library(s)
     s.set_defaults(run=cmd_assets)
 
-    g = sub.add_parser('tags', help='列出各部位的标签词、调色板，以及能精调的五官')
+    g = sub.add_parser('tags', help='List part tags, palettes and facial morph controls')
     g.add_argument('part', nargs='?', choices=list(PARTS))
     add_library(g)
     g.set_defaults(run=cmd_tags)
 
-    v = sub.add_parser('voices', help='列出可用的发音人')
+    v = sub.add_parser('voices', help='List available voices')
     v.set_defaults(run=cmd_voices)
 
-    login = sub.add_parser('login', help='用 www.hg.network 账号换 token，存到 ~/.config/vrman/token')
+    login = sub.add_parser('login', help='Sign in with hg.network and store a private token locally')
     login.add_argument('--username')
-    login.add_argument('--url', help=f'服务地址（默认 {remote.PUBLIC_URL}）')
+    login.add_argument('--url', help=f'Service URL (default: {remote.PUBLIC_URL})')
     login.set_defaults(run=cmd_login)
 
-    who = sub.add_parser('whoami', help='当前 token 属于谁、用了多少')
+    who = sub.add_parser('whoami', help='Show the authenticated account and usage')
     who.add_argument('--url')
     who.set_defaults(run=cmd_whoami)
 
@@ -221,7 +211,7 @@ def parser():
 def main():
     args = parser().parse_args()
     if args.command == 'avatar' and args.photo and not args.gender:
-        parser().error('用照片生成头像时要给 --gender')
+        parser().error('--gender is required when creating an avatar from a photo')
     try:
         result = args.run(args)
     except (ValueError, PermissionError, RuntimeError) as error:

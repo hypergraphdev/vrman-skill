@@ -24,24 +24,22 @@ from vrman_agent import local_tasks  # noqa: E402
 
 OUTPUT = Path(__file__).resolve().parent / 'output' if in_project() else Path.home() / 'vrman-output'
 
-mcp = FastMCP('vrman', instructions="""Hello Genesis 世界创作工具。先 get_studio_capabilities 查看账号可用能力。
-- start_creation 接通场景、人物、动作、剧情、无限世界、共创和教育事件。长任务立即返回 task；用 get_creation_task 查询，cancel_creation_task 取消。
-- build_scene_steps 的第一项任务准备参考图，完成后返回 nextTask；继续查询它可逐步看 GLB 和对照图，previewUrl 可在网页、手机和 VR 打开（需要同一账号登录）。
-- manage_project 管理自己的角色、搭建、世界存档和演出。先读再改，世界 checkpoint 必须带当前 revision，冲突不能自动覆盖。
-- compile_performance 将 vrman-script 编译为可演记录；render_performance_video 导出整剧 H.264/AAC MP4（本机后台任务）。
-- 返回 queued/running 不等于完成；只有 done.result 指向的文件才是交付物。任务失效不能盲目重做付费生成。素材缺失、配音失败必须说明。
-原有数字人工具：
-- 描述 → 3D 头像：先用 tag_vocabulary / search_assets 了解各部位能用的英文标签词，
-  再把描述写成清单交给 create_avatar_from_description，例如
-  {"gender": "female", "hair": "long wavy", "hair_color": "栗色", "glasses": "round thin_frame", "outfit": "formal shirt white"}
-- 照片 → 3D 头像：create_avatar_from_photo（需要用户确认照片是本人或已获授权，consent=true）
-- 文本 → 说话视频：render_talking_video，说话的可以是照片、GLB 头像或现组装的清单头像；视频默认带「AI 生成」角标
-- 只有一个统一素材库，library 不用传；清单里可以写 morphs 精调五官（键和取值范围见 tag_vocabulary 的 controls）。
-  第一次要下载两百多 MB 的头模，要等几分钟
-- 做小孩：各工具传 profile="child"（儿童只有整套衣服 outfit，没有 shirt、胡子、妆容、手表手机）；
-  儿童素材的标签多是中文名，search_assets 可以直接搜中文词，如 query="卫衣"。搜素材和生成头像用同一个 profile
-- 结果文件默认在 ~/vrman-output/，返回里有路径；头像会附一张预览图，看了不满意可以改清单重来
-- 报「token 无效或还没登录」时，请用户在终端按提示运行 vrman.py login（用 www.hg.network 账号）""")
+mcp = FastMCP('vrman', instructions="""Hello Genesis world creation tools. Start with get_studio_capabilities to discover this account's permissions and operation fields.
+Documentation and tool descriptions default to English. Respond in the user's language; preserve their narration and dialogue language choices. Keep API keys, asset IDs and enum values exactly as returned, including required Chinese values.
+- start_creation supports characters, motions, scenes, stories, explorable worlds, co-creation and educational encounters. Long operations return a task; inspect it with get_creation_task and cancel it with cancel_creation_task.
+- build_scene_steps first prepares a reference and returns nextTask. Follow it to see stage GLBs and comparison images. previewUrl opens in desktop, mobile or VR browsers with the same account login.
+- manage_project shares characters, builds, world checkpoints and performances with the web studio. Read before editing; checkpoint updates need the current revision. Reconcile conflicts instead of overwriting progress.
+- compile_performance compiles vrman-script into a replayable record. render_performance_video exports all supplied segments as H.264/AAC MP4 in a local background task.
+- queued/running is not completion. Deliver files only from a completed task's result. Do not blindly repeat paid generation after a lost poll. Report missing assets, staging warnings and failed audio.
+Character and talking-video tools:
+- Inspect tag_vocabulary / search_assets before writing a character spec. Example: {"gender":"female","hair":"long wavy","hair_color":"#6b4423","glasses":"round thin_frame","outfit":"formal shirt white"}.
+- create_avatar_from_photo processes the photo locally and requires the user's existing or newly obtained authorization before consent=true.
+- render_talking_video accepts a photo, GLB avatar or character spec and includes an AI-generated label by default. Choose a voice matching the user's dialogue language.
+- There is one current library, refined-current; library can be omitted. Use morphs with the keys and ranges in tag_vocabulary.controls. Initial model downloads may take several minutes.
+- For children use profile="child" consistently. Children use outfit, not shirt, and do not support beards, makeup or hand accessories. Many child tags are Chinese; use the returned IDs or exact tags, such as 卫衣 (sweatshirt).
+- Files default to ~/vrman-output/ (agent/output/ in repository mode). Avatars include a preview image: inspect it before delivery.
+- If authentication expires, ask the user to run vrman.py login in their own terminal. Never request their password in chat or put tokens in preview links.
+""")
 
 
 def output_path(path, suffix):
@@ -213,10 +211,10 @@ async def export_build(identifier: str | None = None, build: dict | None = None,
 
 @mcp.tool()
 def tag_vocabulary(part: str | None = None, library: str = catalog.DEFAULT_LIBRARY, profile: str | None = None) -> dict:
-    """各部位（hair、eyes、eyebrow、beard、makeup、glasses、headwear、facewear、facemask、shirt、outfit、
-    faceshape、eyeshape、noseshape、lipshape 等）常用的标签词，以及肤色、发色调色板的名字。
-    写头像清单前先看看描述该用哪些词。controls 是能精调的五官（清单 morphs 的键和取值范围）。
-    profile：adult 成人（默认）、child 儿童。library 不用传（只有统一素材库，旧版本名还认）。"""
+    """Inspect avatar part tags, skin/hair palettes and facial morph controls before writing a spec.
+    Parts include hair, eyes, eyebrow, beard, makeup, glasses, headwear, facewear, facemask, shirt,
+    outfit, faceshape, eyeshape, noseshape and lipshape. controls lists morphs keys and valid ranges.
+    profile is adult (default) or child. Omit library to use refined-current; legacy aliases remain accepted."""
     return {'tags': catalog.tag_vocabulary(part, library=library, profile=profile), 'colors': catalog.palettes(),
             'controls': catalog.controls(library, profile)}
 
@@ -224,15 +222,16 @@ def tag_vocabulary(part: str | None = None, library: str = catalog.DEFAULT_LIBRA
 @mcp.tool()
 def search_assets(part: str, query: str = '', gender: str | None = None, limit: int = 8,
                   library: str = catalog.DEFAULT_LIBRARY, profile: str | None = None) -> list:
-    """按标签词搜某个部位的素材，如 part="glasses", query="round thin_frame gold"。
-    gender 填 female / male 时只返回该性别和通用款。返回素材名、风格、标签，清单里可以直接写素材名。
-    profile="child" 搜儿童素材（标签多是中文名，可以搜中文词）。"""
+    """Search avatar parts by library tags, for example part="glasses", query="round thin_frame gold".
+    gender female/male filters to that gender and unisex assets. Returned IDs can be used directly in a spec.
+    Use profile="child" for child assets; many child tags are Chinese and can be searched verbatim."""
     return catalog.search_assets(part, query, gender, limit, library=library, profile=profile)
 
 
 @mcp.tool()
 async def list_voices() -> list:
-    """可用的发音人（voice 值、名字、说明、语言）。默认 zh-CN-XiaoxiaoNeural（晓晓，普通话女声）。"""
+    """List available voice IDs, names, descriptions and languages.
+    The API default is zh-CN-XiaoxiaoNeural (Mandarin female); choose a voice matching the requested dialogue language."""
     def work():
         with VRMan() as vrman:
             return vrman.voices()
@@ -242,13 +241,13 @@ async def list_voices() -> list:
 @mcp.tool()
 async def create_avatar_from_description(spec: dict, out_path: str | None = None, full: bool = False,
                                          library: str = catalog.DEFAULT_LIBRARY, profile: str | None = None) -> list:
-    """按清单组装 3D 头像，导出 GLB，并附一张头肩预览图。
-    spec 的键：gender（female/male）、region（asian/western）、skin、hair_color（#RRGGBB 或调色板名），
-    以及部位名（hair、eyes、glasses、outfit……）→ 标签词或素材名，写 "none" 表示不要；
-    可加 morphs（精调值，如 {"v3_eye_spacing": 0.3}）。profile="child" 做儿童头像（spec 里写了 profile 时以 spec 为准）。
-    也可传 {appearance: 已保存搭配}、{look: describe_character 的结果}，或 {preset: 共创人物返回的 character ID}。
-    结果的 appearance 可存入 manage_project 的 character。照片贴图默认只在本机 GLB 中。
-    full=false 导出说话精简版（只留口型和眨眼）；true 导出完整版（带全部表情和捏脸通道）。"""
+    """Assemble a 3D avatar as GLB with a portrait preview.
+    spec accepts gender (female/male), region (asian/western), skin and hair_color (hex or palette names),
+    plus part names mapped to tags or asset IDs; "none" omits a part. morphs uses the listed controls and ranges.
+    profile="child" selects child assets; an explicit profile inside spec takes precedence.
+    Also accepts {appearance: saved appearance}, {look: describe_character result}, or {preset: character ID from co-creation}.
+    Returned appearance can be saved with manage_project as a character. Photo textures stay in the local GLB by default.
+    full=false keeps speech/blink morphs; full=true retains all expression and facial adjustment channels."""
     glb = output_path(out_path, '.glb')
     preview = str(Path(glb).with_suffix('.png'))
 
@@ -263,10 +262,10 @@ async def create_avatar_from_description(spec: dict, out_path: str | None = None
 async def create_avatar_from_photo(photo_path: str, gender: str, consent: bool, region: str = 'asian',
                                    photo_face: bool = False, out_path: str | None = None, full: bool = False,
                                    library: str = catalog.DEFAULT_LIBRARY, profile: str | None = None) -> list:
-    """照片 → 3D 头像 GLB（附预览图）。照片在本机处理、不上传。
-    consent 必须为 true：表示用户确认照片是本人或已获授权。gender 是照片里的性别（female/male），region 是五官风格。
-    photo_face=false：按照片挑最像的素材（发型、肤色、五官比例）；true：照片直出，按照片捏脸形并把照片贴到脸上，更像本人。
-    照片里是小孩时传 profile="child"，用儿童素材来配。"""
+    """Create a GLB avatar and preview from a photo, processed locally without uploading the original.
+    consent=true confirms the user's authorization. gender is female/male; region selects the facial style.
+    photo_face=false matches library parts, skin and proportions; true shapes and textures the face from the photo.
+    Use profile="child" for a child's photo and ensure guardian authorization."""
     glb = output_path(out_path, '.glb')
     preview = str(Path(glb).with_suffix('.png'))
 
@@ -284,11 +283,12 @@ async def render_talking_video(text: str, out_path: str | None = None, photo_pat
                                width: int = 720, background: str = '#1a1d29', watermark: bool = True,
                                consent: bool = False, library: str = catalog.DEFAULT_LIBRARY,
                                profile: str | None = None) -> dict:
-    """文本 → 说话视频 MP4（H.264 + AAC）。说话的三选一：photo_path（照片说话，需 consent=true）、
-    avatar_path（GLB 头像，可用 create_avatar_* 的结果）、spec（按清单现组装 3D 头像）。
-    style：default（复韵母在一个字里滑过去）、simple（优化精简：每字一个口型，靠字与字之间的过渡）、
-    talkinghead（相邻口型叠加）或 natural（真人平滑：下巴按声母抬落，嘴唇只在 b/p/m/f 时合拢）；rate 如 "-20%"、"+20%"；watermark 默认在右下角加「AI 生成」。
-    用 spec 现组装儿童头像时传 profile="child"。"""
+    """Render one speaking portrait or avatar as H.264/AAC MP4.
+    Choose photo_path (requires consent=true), avatar_path (GLB), or spec (assemble a character).
+    style: default transitions through diphthongs; simple uses one shape per syllable; talkinghead blends adjacent
+    shapes; natural smooths jaw movement with lip closure for b/p/m/f. rate accepts values such as "-20%" or "+20%".
+    watermark defaults to an AI-generated label. Use profile="child" when assembling a child spec.
+    Choose a voice matching the requested dialogue language; English documentation does not change the default voice."""
     video = output_path(out_path, '.mp4')
     spec = {'library': library, 'profile': profile, **spec} if spec else None
 

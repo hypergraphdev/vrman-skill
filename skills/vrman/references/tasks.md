@@ -1,6 +1,6 @@
 # Tasks, files and CLI
 
-`start_creation(operation, payload, image_path?)` returns `ai:<id>` immediately. Read the required payload fields from `get_studio_capabilities`. All creation operations run through the same validated studio endpoints. `image_path` uploads that reference to the service.
+Long operations started with `start_creation(operation, payload, image_path?)` return `ai:<id>` immediately. Synchronous operations such as `refine_scene` return their result directly; check the operation's `async` flag and required payload fields in `get_studio_capabilities`. All creation operations run through the same validated studio endpoints. `image_path` uploads that reference to the service.
 
 After reconnecting, use `list_creation_tasks` (`vrman.py tasks`) to recover recent task IDs. Poll `get_creation_task(task, since=0)` about every 3 seconds. Scene stages contain stable GLB URLs, titles, comparison pictures, scores and human preview links. Set `since` to the number of stages already shown to avoid resending pictures. If the result contains `nextTask`, continue with it; the first job only prepared the reference. Use `cancel_creation_task` for that task. Cancelling the original completed reference task also cancels its scene task.
 

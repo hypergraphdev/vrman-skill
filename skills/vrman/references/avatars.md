@@ -1,111 +1,102 @@
-# 人物和说话视频
+# Characters and talking videos
 
-## 素材库
+[简体中文](avatars.zh-CN.md)
 
-只有一个统一素材库（`refined-current`），不用选，命令里不用写 `--library`。
-它有精细头模、细丝头发、亚洲发型和五官、能精调的五官，还有手表、手机、皮肤细节。
-以前的版本名（`original`、`refined-v2` 等）还认，旧命令照样能跑，但新写的命令不要再加。
-库里分成人、儿童两类素材，默认成人；做小孩见下面「做小孩」。
+## Current library
 
-## 1. 按描述生成 3D 头像
+Use the single current library, `refined-current`; new commands can omit `--library`. Legacy names such as `original` and `refined-v2` are compatibility aliases. Adult and child assets are profiles of the same library, not separate versions. It includes detailed heads, hair, clothing, facial controls, watches, phones and skin details.
 
-1. 先看各部位能用哪些标签词，以及肤色、发色调色板的名字：`vrman.py tags`，或者只看一个部位：`vrman.py tags hair`。
-   结果里的 `controls` 是能精调的五官（清单里 `morphs` 的键和取值范围）。
-2. 把用户的描述（中文也行）换成**英文标签词**，写成清单。拿不准的词先搜一下：`vrman.py assets hair "long wavy" --gender female`。
-3. 生成：
+## Create a character from a description
+
+1. Inspect available tags, palette names and morph ranges with `tag_vocabulary` or `vrman.py tags`. Narrow to a part with `vrman.py tags hair`; `controls` lists valid `morphs` keys and ranges.
+2. Convert the description into tags from the library. Most adult tags are English. Search uncertain terms, for example `vrman.py assets hair "long wavy" --gender female`.
+3. Assemble and preview:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar \
-     --spec '{"gender":"female","hair":"long wavy","hair_color":"栗色","glasses":"round thin_frame","shirt":"casual"}' \
+     --spec '{"gender":"female","hair":"long wavy","hair_color":"#6b4423","glasses":"round thin_frame","shirt":"casual"}' \
      --out avatar.glb --preview avatar.png
    ```
 
-4. **用 Read 看预览图**，确认像不像描述。不像就改清单重来：换标签词，或直接写 `assets` 搜到的素材名，如 `"hair": "hair-28"`。
+4. Inspect the actual preview image. If it misses the description, adjust tags or use the exact asset ID returned by search.
 
-清单的键：
-
-| 键 | 值 |
+| Spec field | Value |
 |---|---|
-| `gender` | `female` / `male`。决定按哪个性别挑素材；不写眉毛时自动配该性别的眉毛 |
-| `profile` | `adult` 成人（默认）/ `child` 儿童，见下面「做小孩」；也可以用 `--profile` |
-| `region` | `asian` / `western`：五官风格 |
-| `skin`、`hair_color` | `#RRGGBB`，或调色板里的名字（如 `象牙`、`栗色`，见 `tags` 的 `colors`） |
-| `hair` `eyes` `eyebrow` `beard` `makeup` `glasses` `headwear` `facewear` `facemask` `shirt` `outfit` | 英文标签词或素材名；写 `"none"` 表示不要这个部位 |
-| `faceshape` `eyeshape` `noseshape` `lipshape` | 脸形、眼形、鼻形、唇形的标签词 |
-| `morphs` | 五官精调：`{"v3_eye_spacing": 0.3, "v2_jaw_width": -0.2}`，键和取值范围见 `tags` 的 `controls` |
-| `watch` `handheld` `skin_detail` | 手表、手机、皮肤细节。手表、手机挂在手上，要穿全身套装（`outfit`）才看得到 |
+| `gender` | `female` or `male`; filters assets and supplies matching eyebrows when omitted |
+| `profile` | `adult` (default) or `child`; also available as `--profile` |
+| `region` | `asian` or `western` facial style |
+| `skin`, `hair_color` | `#RRGGBB` or an exact palette name from `tags.colors`, including names such as `象牙` (ivory) and `栗色` (chestnut) |
+| `hair`, `eyes`, `eyebrow`, `beard`, `makeup`, `glasses`, `headwear`, `facewear`, `facemask`, `shirt`, `outfit` | Library tags or an asset ID; `"none"` omits that part |
+| `faceshape`, `eyeshape`, `noseshape`, `lipshape` | Tags for facial shape presets |
+| `morphs` | Facial adjustments such as `{"v3_eye_spacing":0.3,"v2_jaw_width":-0.2}`; use ranges from `tags.controls` |
+| `watch`, `handheld`, `skin_detail` | Accessories and skin details; hand accessories require a full-body `outfit` to be visible |
 
-`outfit` 是整套衣服，有它就不要 `shirt`。默认导出「说话精简版」（3 MB 以内，只留口型和眨眼）。要带全部表情和捏脸通道的完整版，加 `--full`。
+An `outfit` replaces a separate `shirt`. The default compact export retains speech and blink morphs; file size depends on the chosen assets. `--full` retains all expression and facial adjustment channels.
 
-### 做小孩
+MCP also accepts `spec={appearance:...}` to restore a saved appearance, `spec={look:...}` for a `describe_character` result, or `spec={preset:...}` for a character ID returned by `cocreate_world`. Returned `appearance` can be saved as a character project; see [worlds.md](worlds.md).
 
-加 `--profile child`（MCP 工具传 `profile="child"`）。`tags`、`assets`、`avatar` 都要加，搜到的才是儿童素材：
+### Children
+
+Pass `--profile child` or `profile="child"` consistently to tag search, asset search and assembly:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py assets outfit 卫衣 --profile child --gender female
 python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar --profile child \
-  --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out kid.glb --preview kid.png
+  --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out child.glb --preview child.png
 ```
 
-- 用的是学龄儿童的头模、发型、衣服和五官。儿童素材的标签多是中文名（如「女孩 · 黄色连帽卫衣」），用户描述里的中文词可以直接拿去搜。
-- 儿童只有整套衣服 `outfit`，没有 `shirt`、`beard`、`makeup`、`facemask`、`watch`、`handheld`、`skin_detail`。
-- 精调 `morphs` 的取值范围比成人小，见 `tags --profile child` 的 `controls`。
-- 第一次用儿童还要下载一个一百多 MB 的儿童头模。
+Here `高马尾` means a high ponytail and `卫衣` means a sweatshirt. Many child tags are Chinese; retain the actual library tags even when the request is in English.
 
-## 2. 用照片生成 3D 头像
+Children use school-age heads, hair, clothing and facial features. They have complete `outfit` assets, without `shirt`, `beard`, `makeup`, `facemask`, `watch`, `handheld` or `skin_detail`. Morph ranges are narrower than for adults; read `tags --profile child`. First use also downloads the child head model.
+
+## Create a character from a photo
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar --photo me.jpg --gender male --consent --out me.glb --preview me.png
 ```
 
-- `--gender` 必填，填照片里那个人的性别；`--region asian|western` 选五官风格（默认 asian）。
-- 默认是「生成相似 3D 形象」：按照片挑最像的发型、肤色、五官比例。
-- 加 `--photo-face` 是「照片直出」：按照片捏脸形，并把照片贴到脸上，更像本人。
-- 照片里是小孩时加 `--profile child`，用儿童素材来配。
+- `--gender` is required for photo matching. `--region asian|western` selects facial style; default is `asian`.
+- Default mode chooses library parts and facial proportions resembling the photo.
+- `--photo-face` shapes and textures the face from the photo for closer resemblance.
+- Use `--profile child` for a child's photo.
+- Original avatar photos are processed locally. Uploading references for scene or world generation is a separate workflow.
 
-## 3. 文本 → 说话视频
+## Render a talking video
 
-说话的人三选一：
-
-- `--photo`：照片说话；
-- `--avatar`：GLB 头像，比如上面生成的；
-- `--spec`：按清单现组装一个 3D 头像（小孩加 `--profile child`）。
+Choose one speaker source: `--photo`, `--avatar` (GLB), or `--spec` (assemble a character). Use `--profile child` for a child spec.
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "大家好，欢迎来到发布会。" --avatar avatar.glb --out hello.mp4
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
+python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "Welcome to our new world." --voice en-US-GuyNeural --avatar avatar.glb --out hello.mp4
+python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "Hello." --voice en-US-GuyNeural --photo me.jpg --consent --out portrait.mp4
 ```
 
-参数：
+Options:
 
-- `--voice`：发音人，`vrman.py voices` 列出全部。默认 `zh-CN-XiaoxiaoNeural`（晓晓，普通话女声），男声可用 `zh-CN-YunxiNeural`（云希）。
-- `--rate`：语速，如 `-20%`、`+20%`。
-- `--style`：口型播放方式。`default`（默认）复韵母在一个字里滑过去；`simple` 优化精简，每字一个口型、靠字与字之间的过渡；
-  `talkinghead` 相邻口型叠加；`natural` 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢。
-- `--width`：画面宽度，默认 720。3D 头像是方形画面，照片按原图比例。
-- `--background '#ffffff'`：3D 头像的背景色。
+- `--voice`: choose a voice from `vrman.py voices` matching the requested dialogue language. The API default remains `zh-CN-XiaoxiaoNeural` (Mandarin female); English documentation does not change that default.
+- `--rate`: speech rate, such as `-20%` or `+20%`.
+- `--style`: `default` transitions through diphthongs; `simple` uses one mouth shape per syllable; `talkinghead` blends adjacent shapes; `natural` smooths jaw movement and closes lips for b/p/m/f.
+- `--width`: output width, default 720 pixels. A 3D avatar uses a square frame; a photo keeps its aspect ratio.
+- `--background '#ffffff'`: background color for a 3D avatar.
 
-输出 MP4（H.264 + AAC），手机和网页都能直接播放。
+Output is MP4 with H.264 video and AAC audio. To render a multi-character, multi-scene play, use `render_performance_video`; see [performances.md](performances.md).
 
-## 必须遵守
+## Photo authorization and output
 
-- **照片对应真人。** 用 `--photo` 之前确认用户已说明是本人或已获得授权；已有确认直接沿用，缺少时再询问。确认后才加 `--consent`，不能替用户默认同意。没有授权就别做，并说明原因。
-  照片里是未成年人时，要确认用户是孩子的监护人，或已经得到监护人同意。
-- **视频默认在右下角加「AI 生成」角标。** 只有用户明确要求时才加 `--no-watermark`，并提醒对外发布时要标明是 AI 生成的。
-- 不要拿网上找来的他人照片去生成头像或视频。
-- 结果写到用户指定的位置。用户没说的话，用 `--out` 写到当前工作目录，或者问一句放在哪儿。
+Reuse a user's existing confirmation that a photo is theirs or that they have permission. If missing, ask before supplying `--consent` or `consent=true`; never invent authorization. For a minor, confirm the user is the guardian or has guardian permission. Do not source another person's photo from the web for this workflow.
 
-## 出错怎么办
+Videos include an AI-generated label by default. Remove it only on the user's explicit request and retain disclosure when publishing. Save files to the requested location, or use the MCP default output directory when none is specified.
 
-| 报错 | 处理 |
+## Troubleshooting
+
+| Message or symptom | Action |
 |---|---|
-| `token 无效或还没登录` | 请用户在终端运行上面的 login 命令 |
-| `还没开通 VRMan Agent` | 这个账号被管理员停用了，请用户联系管理员 |
-| `统一素材库现在用不了` | 服务上的模型文件出了问题，告诉用户稍后再试或联系管理员 |
-| `xxx 没找到匹配「…」的素材` | 用 `tags <部位>` 或 `assets <部位>` 看看有哪些词，换个说法（儿童记得加 `--profile child`） |
-| `这类人物没有 xxx` | 儿童没有这个部位：衣服改用 `outfit`，其他的从清单里去掉 |
-| `不认识的发色/肤色` | 报错里列出了可用的名字，也可以直接写 `#RRGGBB` |
-| `需要 ffmpeg 合成视频` | 请用户自己安装：Mac 上 `brew install ffmpeg`，Ubuntu 上 `sudo apt install ffmpeg` |
-| 提示找不到 Chrome 或浏览器 | 请用户运行 `python3 -m playwright install chromium` |
-| `语音合成失败` | 多半是网络问题，稍后再试 |
-| 照片识别不出人脸 | 换一张正脸、光线好、脸部够大的照片 |
+| `token 无效或还没登录` | Ask the user to run `vrman.py login` in their terminal |
+| `还没开通 VRMan Agent` | Ask the administrator to enable account access |
+| `统一素材库现在用不了` | The service cannot load model files; retry later or contact the administrator |
+| `没找到匹配` | Inspect tags and search again; retain `profile="child"` for child assets |
+| `这类人物没有` | The part is unsupported for this profile; use a child's `outfit` instead of `shirt` |
+| `不认识的发色/肤色` | Use a listed palette name or `#RRGGBB` |
+| `需要 ffmpeg 合成视频` | Install ffmpeg locally |
+| Chrome/browser not found | Run `python3 -m playwright install chromium` |
+| `语音合成失败` | Speech synthesis failed; inspect the network/service error before retrying |
+| No face detected | Use a clear, well-lit frontal photo with a sufficiently large face |

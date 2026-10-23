@@ -1,9 +1,11 @@
 ---
 name: vrman
-description: Use Hello Genesis (VRMan) to create 3D characters, build and inspect scenes step by step, write and perform stories, edit and save explorable worlds, search assets, and export GLB or whole-performance MP4. Use for requests to operate this studio through AI, including 场景搭建、剧情演出、无限世界、共创、数字人和说话视频. This skill operates the existing studio, not arbitrary websites or video editing applications.
+description: Use Hello Genesis (VRMan) to create 3D characters, build and inspect scenes step by step, write and perform stories, edit and save explorable worlds, search assets, and export GLB or whole-performance MP4. Use for requests to operate this studio through AI. This skill operates the existing studio, not arbitrary websites or video editing applications.
 ---
 
 # Hello Genesis · World creation
+
+English is the default documentation language. Use these English instructions and linked references; the [Chinese guide](../../README.zh-CN.md) is available on request. Respond in the user's language and preserve their script and dialogue language choices. Documentation language does not override output language. Keep API keys, enum values and asset IDs exactly as documented, including Chinese values required by the engine.
 
 Use the MCP tools when available; the CLI is the fallback. The installed repository contains the same client for both. `${CLAUDE_PLUGIN_ROOT}` means that repository's root; outside a Claude plugin, substitute its actual path.
 

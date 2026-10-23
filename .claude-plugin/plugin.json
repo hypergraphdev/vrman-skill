@@ -1,7 +1,7 @@
 {
   "name": "vrman",
-  "version": "0.7.0",
-  "description": "Hello Genesis 世界创作：人物、素材检索、分步搭建、剧情演出、无限世界、存档与整剧 MP4 导出",
+  "version": "0.7.1",
+  "description": "Hello Genesis world creation: characters, asset search, step-by-step scenes, performances, persistent worlds and full-performance MP4 export",
   "author": {
     "name": "hypergraphdev"
   },
