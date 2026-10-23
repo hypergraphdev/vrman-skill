@@ -1,140 +1,29 @@
 ---
 name: vrman
-description: 用 VRMan 数字人工具生成 3D 头像和说话视频。用户想「按描述捏一个 3D 头像」「做一个小孩 / 儿童 3D 头像」「用照片生成 3D 头像 / GLB」「让照片或头像说一段话、做成视频」「数字人播报视频」时使用。照片只在本机处理，不上传。
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py *)
+description: Use Hello Genesis (VRMan) to create 3D characters, build and inspect scenes step by step, write and perform stories, edit and save explorable worlds, search assets, and export GLB or whole-performance MP4. Use for requests to operate this studio through AI, including 场景搭建、剧情演出、无限世界、共创、数字人和说话视频. This skill operates the existing studio, not arbitrary websites or video editing applications.
 ---
 
-# VRMan：描述 / 照片 → 3D 头像，文本 → 说话视频
+# Hello Genesis · World creation
 
-所有操作都通过一个命令行完成，结果以 JSON 打印（出错时是 `{"error": "..."}`，退出码 1）：
+Use the MCP tools when available; the CLI is the fallback. The installed repository contains the same client for both. `${CLAUDE_PLUGIN_ROOT}` means that repository's root; outside a Claude plugin, substitute its actual path.
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py <命令> ...
-```
+Start with `get_studio_capabilities` (`python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py capabilities`). It reports this account's permissions, operation payloads, time limits and protocol version. Model-backed creation needs the same account entitlement as the web studio. Agent access does not grant administration or voice cloning.
 
-（不是以插件方式安装时，`${CLAUDE_PLUGIN_ROOT}` 换成 vrman-skill 仓库所在的目录。也可以直接用同名的 MCP 工具，参数一样。）
+If authentication expires, ask the user to run `vrman.py login` in their own terminal; do not request their password in chat. Never put tokens in links or deliverables. Human preview links use the ordinary studio login and work on desktop, mobile and VR; local rendering runs on the computer hosting MCP.
 
-工具会在本机开一个看不见的 Chrome，打开 VRMan 工作室页面完成组装、导出和逐帧渲染。页面、素材和语音合成来自 VRMan 服务（www.hg.network）。
-生成一个头像约 5 秒；第一次要下载素材（头模两百多 MB），要等几分钟，之后有本机缓存。视频耗时约等于语音时长加几秒。
+## Choose the workflow
 
-## 0. 先登录（每台电脑一次）
+- **Characters / talking portraits:** read [references/avatars.md](references/avatars.md). Existing tools retain adult/child profiles, local photo processing, GLB previews and H.264/AAC talking videos. `describe_character` resolves natural-language appearances; named characters such as 孙悟空 use the `cocreate_world` resolver and its returned character preset.
+- **Scenes, assembled builds, worlds, educational events and saves:** read [references/worlds.md](references/worlds.md). Search first using `search_library`; use stable returned asset IDs. It covers props, characters, motions and sounds. Do not silently substitute unrelated assets.
+- **Stories and full performance videos:** read [references/performances.md](references/performances.md). For authored script JSON, read [references/script-format.md](references/script-format.md). Compile with the studio's shared staging rules; do not bypass its physical and social checks by inventing engine coordinates.
+- **CLI, progress, cancellation, failure recovery and output files:** read [references/tasks.md](references/tasks.md).
 
-报「token 无效或还没登录」时，**请用户自己在终端运行**下面的命令，输入 www.hg.network 的账号和密码。
-不要替用户输入密码，也不要让用户把密码发到对话里。
+## Completion and continuity
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py login
-```
+A returned task is not a completed creation. Poll `get_creation_task` at the suggested interval, show new stage images and the progress link, and stop on a terminal state. A `nextTask` means the reference is ready and scene modelling has begun: follow that task. Do not rerun paid generation merely because one poll failed. On an expired/interrupted task, retain completed stages and explain what must be retried.
 
-token 存在 `~/.config/vrman/token`。`vrman.py whoami` 查看当前登录的是谁、用了多少。
-所有 www.hg.network 账号都能用（注册免费）；没有账号就请用户先到 www.hg.network 注册。
+Use `manage_project` to save work that the user wants to continue in the studio. Keep IDs, world seeds and the full checkpoint: position, gold, items, claims and co-created objects. Read before updating. On revision conflict, fetch the current version and reconcile with the user's intended changes; never silently overwrite another device's progress. Deletion is only for the project the user requested to remove.
 
-## 素材库
+For each deliverable, verify the actual image/model/video or saved record. Report material missing assets, skipped actions, unresolved scene warnings and failed audio. A script JSON download is not a video; a preview URL is not a downloadable MP4. Only a completed render's `result.video` is the MP4 file.
 
-只有一个统一素材库（`refined-current`），不用选，命令里不用写 `--library`。
-它有精细头模、细丝头发、亚洲发型和五官、能精调的五官，还有手表、手机、皮肤细节。
-以前的版本名（`original`、`refined-v2` 等）还认，旧命令照样能跑，但新写的命令不要再加。
-库里分成人、儿童两类素材，默认成人；做小孩见下面「做小孩」。
-
-## 1. 按描述生成 3D 头像
-
-1. 先看各部位能用哪些标签词，以及肤色、发色调色板的名字：`vrman.py tags`，或者只看一个部位：`vrman.py tags hair`。
-   结果里的 `controls` 是能精调的五官（清单里 `morphs` 的键和取值范围）。
-2. 把用户的描述（中文也行）换成**英文标签词**，写成清单。拿不准的词先搜一下：`vrman.py assets hair "long wavy" --gender female`。
-3. 生成：
-
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar \
-     --spec '{"gender":"female","hair":"long wavy","hair_color":"栗色","glasses":"round thin_frame","shirt":"casual"}' \
-     --out avatar.glb --preview avatar.png
-   ```
-
-4. **用 Read 看预览图**，确认像不像描述。不像就改清单重来：换标签词，或直接写 `assets` 搜到的素材名，如 `"hair": "hair-28"`。
-
-清单的键：
-
-| 键 | 值 |
-|---|---|
-| `gender` | `female` / `male`。决定按哪个性别挑素材；不写眉毛时自动配该性别的眉毛 |
-| `profile` | `adult` 成人（默认）/ `child` 儿童，见下面「做小孩」；也可以用 `--profile` |
-| `region` | `asian` / `western`：五官风格 |
-| `skin`、`hair_color` | `#RRGGBB`，或调色板里的名字（如 `象牙`、`栗色`，见 `tags` 的 `colors`） |
-| `hair` `eyes` `eyebrow` `beard` `makeup` `glasses` `headwear` `facewear` `facemask` `shirt` `outfit` | 英文标签词或素材名；写 `"none"` 表示不要这个部位 |
-| `faceshape` `eyeshape` `noseshape` `lipshape` | 脸形、眼形、鼻形、唇形的标签词 |
-| `morphs` | 五官精调：`{"v3_eye_spacing": 0.3, "v2_jaw_width": -0.2}`，键和取值范围见 `tags` 的 `controls` |
-| `watch` `handheld` `skin_detail` | 手表、手机、皮肤细节。手表、手机挂在手上，要穿全身套装（`outfit`）才看得到 |
-
-`outfit` 是整套衣服，有它就不要 `shirt`。默认导出「说话精简版」（3 MB 以内，只留口型和眨眼）。要带全部表情和捏脸通道的完整版，加 `--full`。
-
-### 做小孩
-
-加 `--profile child`（MCP 工具传 `profile="child"`）。`tags`、`assets`、`avatar` 都要加，搜到的才是儿童素材：
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py assets outfit 卫衣 --profile child --gender female
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar --profile child \
-  --spec '{"gender":"female","hair":"高马尾","outfit":"卫衣"}' --out kid.glb --preview kid.png
-```
-
-- 用的是学龄儿童的头模、发型、衣服和五官。儿童素材的标签多是中文名（如「女孩 · 黄色连帽卫衣」），用户描述里的中文词可以直接拿去搜。
-- 儿童只有整套衣服 `outfit`，没有 `shirt`、`beard`、`makeup`、`facemask`、`watch`、`handheld`、`skin_detail`。
-- 精调 `morphs` 的取值范围比成人小，见 `tags --profile child` 的 `controls`。
-- 第一次用儿童还要下载一个一百多 MB 的儿童头模。
-
-## 2. 用照片生成 3D 头像
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py avatar --photo me.jpg --gender male --consent --out me.glb --preview me.png
-```
-
-- `--gender` 必填，填照片里那个人的性别；`--region asian|western` 选五官风格（默认 asian）。
-- 默认是「生成相似 3D 形象」：按照片挑最像的发型、肤色、五官比例。
-- 加 `--photo-face` 是「照片直出」：按照片捏脸形，并把照片贴到脸上，更像本人。
-- 照片里是小孩时加 `--profile child`，用儿童素材来配。
-
-## 3. 文本 → 说话视频
-
-说话的人三选一：
-
-- `--photo`：照片说话；
-- `--avatar`：GLB 头像，比如上面生成的；
-- `--spec`：按清单现组装一个 3D 头像（小孩加 `--profile child`）。
-
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "大家好，欢迎来到发布会。" --avatar avatar.glb --out hello.mp4
-python3 ${CLAUDE_PLUGIN_ROOT}/vrman.py talk --text "你好" --photo me.jpg --consent --out hello.mp4
-```
-
-参数：
-
-- `--voice`：发音人，`vrman.py voices` 列出全部。默认 `zh-CN-XiaoxiaoNeural`（晓晓，普通话女声），男声可用 `zh-CN-YunxiNeural`（云希）。
-- `--rate`：语速，如 `-20%`、`+20%`。
-- `--style`：口型播放方式。`default`（默认）复韵母在一个字里滑过去；`simple` 优化精简，每字一个口型、靠字与字之间的过渡；
-  `talkinghead` 相邻口型叠加；`natural` 真人平滑，下巴按声母抬落、嘴唇只在 b/p/m/f 时合拢。
-- `--width`：画面宽度，默认 720。3D 头像是方形画面，照片按原图比例。
-- `--background '#ffffff'`：3D 头像的背景色。
-
-输出 MP4（H.264 + AAC），手机和网页都能直接播放。
-
-## 必须遵守
-
-- **照片对应真人。** 用 `--photo` 之前要先问用户：照片是不是本人，或者已经得到本人授权。用户确认了才加 `--consent`，不能替用户默认同意。没有授权就别做，并说明原因。
-  照片里是未成年人时，要确认用户是孩子的监护人，或已经得到监护人同意。
-- **视频默认在右下角加「AI 生成」角标。** 只有用户明确要求时才加 `--no-watermark`，并提醒对外发布时要标明是 AI 生成的。
-- 不要拿网上找来的他人照片去生成头像或视频。
-- 结果写到用户指定的位置。用户没说的话，用 `--out` 写到当前工作目录，或者问一句放在哪儿。
-
-## 出错怎么办
-
-| 报错 | 处理 |
-|---|---|
-| `token 无效或还没登录` | 请用户在终端运行上面的 login 命令 |
-| `还没开通 VRMan Agent` | 这个账号被管理员停用了，请用户联系管理员 |
-| `统一素材库现在用不了` | 服务上的模型文件出了问题，告诉用户稍后再试或联系管理员 |
-| `xxx 没找到匹配「…」的素材` | 用 `tags <部位>` 或 `assets <部位>` 看看有哪些词，换个说法（儿童记得加 `--profile child`） |
-| `这类人物没有 xxx` | 儿童没有这个部位：衣服改用 `outfit`，其他的从清单里去掉 |
-| `不认识的发色/肤色` | 报错里列出了可用的名字，也可以直接写 `#RRGGBB` |
-| `需要 ffmpeg 合成视频` | 请用户自己安装：Mac 上 `brew install ffmpeg`，Ubuntu 上 `sudo apt install ffmpeg` |
-| 提示找不到 Chrome 或浏览器 | 请用户运行 `python3 -m playwright install chromium` |
-| `语音合成失败` | 多半是网络问题，稍后再试 |
-| 照片识别不出人脸 | 换一张正脸、光线好、脸部够大的照片 |
+Avatar photo matching stays local. Reference images submitted for scene/world generation and saved projects go to the authenticated service. Keep this distinction clear when a user's privacy constraints matter. The current asset library remains `refined-current`; use existing lite delivery and stable URLs, not duplicate asset libraries.

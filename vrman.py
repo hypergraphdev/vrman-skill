@@ -23,12 +23,57 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vrman_agent import VRMan, catalog, remote  # noqa: E402
 from vrman_agent.api import STYLES  # noqa: E402
 from vrman_agent.catalog import DEFAULT_LIBRARY, LEGACY_LIBRARIES, LIBRARIES, PARTS, PROFILES  # noqa: E402
+from vrman_agent.creation import Creation, CONTRACT, image_payload  # noqa: E402
+from vrman_agent.server import Service  # noqa: E402
+from vrman_agent import local_tasks  # noqa: E402
 
 
 def load_spec(value):
     """--spec 可以是 JSON 字符串，也可以是 JSON 文件路径"""
-    path = Path(value)
-    return json.loads(path.read_text(encoding='utf-8') if path.exists() else value)
+    if value.lstrip().startswith(('{', '[')):
+        return json.loads(value)
+    return json.loads(Path(value).expanduser().read_text(encoding='utf-8'))
+
+
+def cmd_studio(args):
+    if args.command == 'task' and args.identifier.startswith('local:'):
+        return (local_tasks.cancel if args.cancel else local_tasks.status)(args.identifier[6:])
+    with Service() as service:
+        client = Creation(service)
+        if args.command in ('create', 'render', 'preview', 'export-build') and service.process:
+            raise RuntimeError('Long tasks need a persistent service: run server.py separately and set VRMAN_URL, or use the hosted service.')
+        if args.command == 'capabilities':
+            return client.capabilities()
+        if args.command == 'tasks':
+            return {'tasks': service.get('/api/agent/tasks')['tasks'] + local_tasks.listing()}
+        if args.command == 'search':
+            return client.search(args.query, args.kind, args.limit, era=args.era, profile=args.profile)
+        if args.command == 'create':
+            payload = load_spec(args.payload)
+            if args.image: payload['image'] = image_payload(args.image)
+            return client.start(args.operation, payload)
+        if args.command == 'task':
+            result = client.task(args.identifier, args.since, args.cancel)
+            for stage in result.get('stages', []): stage.pop('compare', None)
+            return result
+        if args.command == 'project':
+            result = client.project(args.kind, args.action, args.identifier, load_spec(args.payload) if args.payload else None)
+            if args.out:
+                path = Path(args.out).expanduser().resolve(); path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+            return result
+        if args.command == 'compile':
+            return client.compile(load_spec(args.script), args.save)
+        if args.command == 'scene-import': return client.upload_scene(args.path)
+        if args.command == 'scene-export': return client.download_scene(args.url, args.out)
+        if args.command == 'edit-performance': return client.edit_performance(load_spec(args.payload))
+        if args.command in ('render', 'preview', 'export-build'):
+            payload = {'out': str(Path(args.out).expanduser().resolve())}
+            if args.command == 'render':
+                payload.update(id=args.identifier, record=load_spec(args.record) if args.record else None, width=args.width)
+            elif args.command == 'preview': payload['url'] = args.url
+            else: payload.update(id=args.identifier, build=load_spec(args.build) if args.build else None)
+            return local_tasks.start({'render':'performance', 'preview':'scene_preview', 'export-build':'build_export'}[args.command], payload, service)
 
 
 def spec_of(args):
@@ -86,7 +131,7 @@ def add_library(command):
 
 
 def parser():
-    p = argparse.ArgumentParser(description='VRMan：照片或描述 → 3D 头像，文本 → 说话视频')
+    p = argparse.ArgumentParser(description='Hello Genesis：人物、场景、世界、剧情、存档与 GLB/MP4 导出')
     sub = p.add_subparsers(dest='command', required=True)
 
     a = sub.add_parser('avatar', help='生成 3D 头像 GLB')
@@ -146,6 +191,30 @@ def parser():
     who = sub.add_parser('whoami', help='当前 token 属于谁、用了多少')
     who.add_argument('--url')
     who.set_defaults(run=cmd_whoami)
+
+    for name in ('capabilities', 'tasks', 'search', 'create', 'task', 'project', 'compile', 'scene-import', 'scene-export', 'edit-performance', 'render', 'preview', 'export-build'):
+        command = sub.add_parser(name)
+        command.set_defaults(run=cmd_studio)
+        if name == 'search':
+            command.add_argument('query'); command.add_argument('--kind', choices=['props','avatars','motions','sounds'], default='props')
+            command.add_argument('--limit', type=int, default=12); command.add_argument('--era'); command.add_argument('--profile')
+        if name == 'create':
+            command.add_argument('operation', choices=list(CONTRACT['operations'])); command.add_argument('--payload', required=True)
+            command.add_argument('--image')
+        if name == 'task':
+            command.add_argument('identifier'); command.add_argument('--since', type=int, default=0); command.add_argument('--cancel', action='store_true')
+        if name == 'project':
+            command.add_argument('kind', choices=list(CONTRACT['projects'])); command.add_argument('action', choices=['list','get','save','delete'])
+            command.add_argument('--id', dest='identifier'); command.add_argument('--payload'); command.add_argument('--out')
+        if name == 'compile': command.add_argument('--script', required=True); command.add_argument('--save', action='store_true')
+        if name == 'edit-performance': command.add_argument('--payload', required=True)
+        if name == 'scene-import': command.add_argument('path')
+        if name in ('scene-export', 'preview'): command.add_argument('url')
+        if name in ('scene-export', 'preview', 'render', 'export-build'): command.add_argument('--out', required=True)
+        if name in ('render', 'export-build'):
+            source = command.add_mutually_exclusive_group(required=True); source.add_argument('--id', dest='identifier')
+            source.add_argument('--record' if name == 'render' else '--build')
+        if name == 'render': command.add_argument('--width', type=int, default=1280)
     return p
 
 

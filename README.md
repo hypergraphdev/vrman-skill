@@ -1,28 +1,22 @@
-# VRMan Skill · 数字人工具
+# Hello Genesis Skill · 世界创作
 
-让 Agent（Claude Code、Claude Desktop、Cursor 等）直接帮你做两件事：
+让 AI 通过与工作室相同的引擎创作人物、搭建场景、编排演出、编辑世界并保存进度。
 
-- **描述或照片 → 3D 头像**：「做一个栗色长卷发、戴圆框眼镜的女生头像」「做一个扎高马尾、穿黄色卫衣的小女孩」，得到一个能说话、会眨眼的 GLB 模型和一张预览图。
-- **文本 + 照片或头像 → 说话视频**：「让这张照片说『欢迎来到发布会』」，得到一个对好口型的 MP4。
+- 搜人物、物件、动作和声音，生成形象与说话视频。
+- 分阶段搭场景：逐步看模型、对照图和进度，导出 GLB。
+- 写剧本、选角、续写、修改布景、保存演出，导出带配音和字幕的整剧 MP4。
+- 生成与扩展无限世界、共创物件、按需出题，与网页版共用世界和游戏存档。
+- 长任务可查询、取消；保存冲突明确返回，失败不会一直显示“编写中”。
 
-装好后，在 Agent 里这样说就行：
-
-> 用我这张照片（是我本人）做一个 3D 头像，再让它说「大家好，我是小王」，视频存到桌面。
+例如：“搭一座河畔古镇，每搭好一步给我看；编一段店家上菜的戏，保存世界，并把演出导出 MP4。”
 
 ## 工作方式
 
-```mermaid
-flowchart LR
-    A["你的 Agent"] -->|"Skill / MCP"| C["本工具（装在你的电脑上）"]
-    C --> B["本机无头 Chrome：组装头像、照片识别、逐帧渲染"]
-    C --> F["本机 ffmpeg：画面 + 声音 → MP4"]
-    B -->|"带 token 取页面和素材"| S["VRMan 服务 www.hg.network"]
-    C -->|"带 token 合成语音"| S
-```
+先调用 `get_studio_capabilities` 查看当前账号的能力和参数。生成在服务端进行，模型和视频预览使用本机 Chromium；整剧 MP4 在本机经 ffmpeg 编码为 H.264 + AAC。结果文件和后台任务保存在本机，世界与项目可存入账号。浏览器预览链接可在电脑、手机、VR 打开，需要相同账号登录。
 
-- **照片只在你的电脑上处理**，不会上传。发到服务器的只有要念的文字。
-- 素材和语音合成来自 VRMan 服务，要用 www.hg.network 的账号登录（注册免费，所有账号都能用）。
-- 第一次运行要下载素材（精细头模两百多 MB，要等几分钟），之后有本机缓存，只确认有没有更新。
+照片匹配头像的原图只在本机处理；场景或世界生成的参考图会上传。素材和语音合成需要网络。模型生成能力遵循网站开通状态，Agent 不提供管理或声音克隆权限。首次加载素材可能较慢，后续使用缓存。
+
+任务开始不等于完成。分步场景准备参考图后会返回 `nextTask`，继续跟踪它；场景阶段有检查点，服务中断后已搭好的部分仍能使用。普通 AI 任务结果完成后保留十分钟，请及时取回保存。正在执行的服务端生成不会自动从中断处恢复。
 
 ## 安装
 
@@ -94,9 +88,9 @@ claude plugin install vrman@vrman-skill
 
 配置写法相同。Cursor 的配置文件是 `~/.cursor/mcp.json`。
 
-### claude.ai 网页版
+### 其他客户端
 
-暂不支持。网页版的 Skill 跑在云端沙箱里，开不了浏览器，也连不上你本机的工具。
+需要支持本地 stdio MCP 或本机命令执行。只有云端运行环境的客户端不能直接启动本机 Chromium 和 ffmpeg；可打开已保存作品的浏览器预览链接。
 
 ## MCP 工具
 
@@ -107,6 +101,22 @@ claude plugin install vrman@vrman-skill
 | `create_avatar_from_description` | 清单 → GLB，附一张头肩预览图，Agent 能直接看到效果 |
 | `create_avatar_from_photo` | 照片 → GLB（生成相似形象 / 照片直出），附预览图 |
 | `render_talking_video` | 文本 → MP4，说话的可以是照片、GLB 头像或现组装的头像；`style` 选口型方式（见下） |
+
+新增创作工具：
+
+| 工具 | 能力 |
+|---|---|
+| `get_studio_capabilities` | 协议、权限、操作参数与限额 |
+| `search_library` | 全库语义检索，返回可使用的 ID 与元数据 |
+| `start_creation` | 16 类创作操作：人物、动作、场景、世界、剧情、共创和教育 |
+| `list_creation_tasks` / `get_creation_task` / `cancel_creation_task` | 找回任务、查询进度、分步图片、结果与取消 |
+| `manage_project` | 角色、搭建、世界和演出的保存、读取、删除 |
+| `compile_performance` / `edit_performance` | 剧本编译、布景调整及规则检查 |
+| `import_scene` / `export_scene` / `preview_scene` | GLB 上传、下载与 PNG 预览 |
+| `export_build` | 搭建作品合并导出 GLB |
+| `render_performance_video` | 多场景整剧导出 H.264/AAC MP4 |
+
+详细流程见 [Skill](skills/vrman/SKILL.md) 与 [任务和 CLI](skills/vrman/references/tasks.md)。无限世界中的即时行走、拾取、交易和 VR 点击仍在浏览器运行；共创返回计划，需要应用到场景或存档，不会自动控制另一个已打开的页面。
 
 **素材库**：只有一个统一素材库（`refined-current`），不用选。它有精细头模、细丝头发、亚洲发型和五官、
 能精调的五官（清单里写 `morphs`），还有手表、手机、皮肤细节。

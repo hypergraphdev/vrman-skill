@@ -43,28 +43,35 @@ def save_token(token):
     TOKEN_FILE.write_text(token + '\n')
 
 
-def open_url(url, data=None, token=None, timeout=60):
+def open_url(url, data=None, token=None, timeout=60, method=None):
     """GET，或带 JSON 的 POST；有 token 就带上"""
     headers = {'Content-Type': 'application/json'} if data is not None else {}
     if token:
         headers['Authorization'] = f'Bearer {token}'
     body = json.dumps(data).encode('utf-8') if data is not None else None
-    return urllib.request.urlopen(urllib.request.Request(url, data=body, headers=headers), timeout=timeout)
+    return urllib.request.urlopen(urllib.request.Request(url, data=body, headers=headers, method=method), timeout=timeout)
 
 
-def request_json(url, data=None, token=None, timeout=60):
+class APIError(RuntimeError):
+    def __init__(self, message, status, details=None):
+        super().__init__(message)
+        self.status, self.details = status, details or {}
+
+
+def request_json(url, data=None, token=None, timeout=60, method=None):
     """请求并读 JSON；服务端报错时把它的说明（{"error": ...}）原样抛成 RuntimeError"""
     try:
-        with open_url(url, data, token, timeout) as response:
+        with open_url(url, data, token, timeout, method) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
         try:
-            message = json.load(error).get('error')
+            details = json.load(error)
+            message = details.get('error')
         except ValueError:
-            message = None
+            message, details = None, {}
         if error.code == 401 and 'token' in (message or ''):
             message = f'{message}。{LOGIN_HINT}'
-        raise RuntimeError(message or f'请求失败（HTTP {error.code}）：{url}') from None
+        raise APIError(message or f'请求失败（HTTP {error.code}）：{url}', error.code, details) from None
     except urllib.error.URLError as error:
         raise RuntimeError(f'连不上 {url}：{error.reason}') from None
 

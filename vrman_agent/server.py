@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+from html.parser import HTMLParser
 
 from .remote import LOGIN_HINT, ROOT, load_token, open_url, request_json, service_url
 
@@ -15,11 +16,23 @@ DEFAULT_URL = 'http://localhost:8080'
 START_TIMEOUT_S = 60
 
 
+class StudioMarker(HTMLParser):
+    """Recognize the application independently of its brand or UI language."""
+    found = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'body' and 'studio-page' in attrs.get('class', '').split():
+            self.found = True
+
+
 def is_vrman(url, token=None):
     """这个地址上跑的是不是 VRMan（不只是端口开着）；token 不对时说清楚"""
     try:
-        with open_url(f'{url}/index.html', token=token, timeout=5) as response:
-            return b'VRMan Studio' in response.read(4096)
+        with open_url(f'{url}/studio.html', token=token, timeout=5) as response:
+            marker = StudioMarker()
+            marker.feed(response.read(16384).decode('utf-8', errors='replace'))
+            return marker.found
     except urllib.error.HTTPError as error:
         if error.code == 401:
             raise RuntimeError(f'{url} 拒绝访问：token 无效或还没登录。{LOGIN_HINT}') from None
@@ -74,6 +87,9 @@ class Service:
 
     def post(self, path, data, timeout=120):
         return request_json(f'{self.url}{path}', data, token=self.token, timeout=timeout)
+
+    def delete(self, path):
+        return request_json(f'{self.url}{path}', token=self.token, method='DELETE')
 
     def __exit__(self, *exc):
         self.close()

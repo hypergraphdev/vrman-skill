@@ -78,6 +78,11 @@ class VRMan:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(page.export_glb(slim))
         result = {'glb': str(out), 'size_kb': out.stat().st_size // 1024, 'slim': slim, **page.worn()}
+        # A reusable project appearance, not labels that would be re-matched on
+        # the next load. Photo textures remain local in the GLB by default.
+        appearance = page.js("() => { try { return studio.builder.captureAppearance(); } catch { return null; } }")
+        if appearance is not None:
+            result['appearance'] = appearance
         if preview:
             Path(preview).write_bytes(page.portrait())
             result['preview'] = str(preview)
@@ -135,6 +140,7 @@ def existing(path, what):
 
 def spec_library(spec):
     """清单里的素材库和人物类型：(library, profile)"""
+    spec = spec.get('appearance') or spec.get('look') or spec
     library = spec.get('library', catalog.DEFAULT_LIBRARY)
     return library, catalog.profile_of(library, spec.get('profile'))
 
@@ -150,6 +156,18 @@ def check_morphs(morphs):
 def apply_spec(page, spec):
     """把清单里每个部位的描述对到素材上，再交给页面组装（页面已按清单的素材版本打开）。值写 none 表示不要这个部位"""
     library, profile = spec_library(spec)
+    if spec.get('appearance'):
+        page.js('async appearance => { await studio.useActor("custom"); await studio.builder.restoreAppearance(appearance); }', spec['appearance'])
+        page.wait_idle()
+        return
+    if spec.get('look'):
+        page.js('async look => { const {wearLook} = await import("./avatar-ai.js"); await wearLook(studio, look); }', spec['look'])
+        page.wait_idle()
+        return
+    if spec.get('preset'):
+        page.js('async preset => { await studio.useActor("custom"); await studio.builder.applyCharacterPreset(preset); }', spec['preset'])
+        page.wait_idle()
+        return
     spec = {k: v for k, v in spec.items() if k not in ('library', 'profile')}
     morphs = check_morphs(spec.pop('morphs', {}))
     gender = spec.pop('gender', None)

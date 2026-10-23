@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "operations": {
+    "describe_character": {
+      "path": "/api/avatar/describe",
+      "fields": "text; optional gender, profile",
+      "description": "Resolve a natural-language character into the current library.",
+      "async": true,
+      "premium": true
+    },
+    "compose_motion": {
+      "path": "/api/motion/compose",
+      "fields": "text",
+      "description": "Compose a validated action sequence.",
+      "async": true,
+      "premium": true
+    },
+    "sketch_scene": {
+      "path": "/api/scene/sketch",
+      "fields": "text; optional era",
+      "description": "Arrange an editable scene using installed props.",
+      "async": true,
+      "premium": true
+    },
+    "build_scene": {
+      "path": "/api/scene/build",
+      "fields": "text and/or image (data URL); mode=new|mix|reuse; draw:boolean",
+      "description": "Build a scene GLB.",
+      "async": true,
+      "premium": true
+    },
+    "refine_scene": {
+      "path": "/api/scene/refined",
+      "fields": "build",
+      "description": "Fetch the refined result of a build.",
+      "async": false,
+      "premium": true
+    },
+    "build_scene_steps": {
+      "path": "/api/scene/coder/start",
+      "fields": "text and/or image (data URL)",
+      "description": "Build a scene in inspectable GLB stages.",
+      "async": true,
+      "premium": true
+    },
+    "design_world": {
+      "path": "/api/world/design",
+      "fields": "text OR world (version 2)",
+      "description": "Generate a world or validate an edited world against shared rules.",
+      "async": true,
+      "premium": true
+    },
+    "extend_world": {
+      "path": "/api/world/next",
+      "fields": "world",
+      "description": "Generate the next stretch of an existing world.",
+      "async": true,
+      "premium": true
+    },
+    "world_from_scene": {
+      "path": "/api/world/from-scene",
+      "fields": "scene",
+      "description": "Expand a scene into an explorable world.",
+      "async": true,
+      "premium": true
+    },
+    "world_from_photo": {
+      "path": "/api/world/from-photo",
+      "fields": "image (data URL); optional note",
+      "description": "Build a world around a reference image.",
+      "async": true,
+      "premium": true
+    },
+    "auto_world": {
+      "path": "/api/world/auto",
+      "fields": "text and/or image (data URL)",
+      "description": "Choose an appropriate world construction method.",
+      "async": true,
+      "premium": true
+    },
+    "review_world": {
+      "path": "/api/world/look",
+      "fields": "world, image (screenshot data URL); optional before, fix:boolean",
+      "description": "Review visible arrangement and optionally correct the design.",
+      "async": true,
+      "premium": true
+    },
+    "cocreate_world": {
+      "path": "/api/world/cocreate",
+      "fields": "text; optional era",
+      "description": "Plan additive people, animals and objects; apply to a saved checkpoint separately.",
+      "async": true,
+      "premium": true
+    },
+    "world_event": {
+      "path": "/api/world/event",
+      "fields": "era, season, time, place, near (list of labels), seen (previous event titles)",
+      "description": "Generate an encounter using world context.",
+      "async": true,
+      "premium": true
+    },
+    "learning_question": {
+      "path": "/api/world/quiz",
+      "fields": "subject=english|translation|chinese|math|ai|computer (or 英语|英语翻译|语文|数学|AI|计算机), id=learning:x,z, world=64-character lowercase hex world hash, seed=1..999999",
+      "description": "Generate an educational encounter on demand.",
+      "async": true,
+      "premium": true
+    },
+    "write_story": {
+      "path": "/api/story",
+      "fields": "action=outline|cast|segment; outline: text, lines=精简|标准|扩写, language=zh|en (dialogue), scriptLanguage=zh|en (narration); cast/segment: story; segment: start, carried, place, world, note, feedback, owed",
+      "description": "Outline, cast or continue a story. Script language and dialogue language are independent.",
+      "async": true,
+      "premium": true
+    }
+  },
+  "projects": {
+    "world": "/api/world/saved",
+    "build": "/api/build/saved",
+    "character": "/api/character/saved",
+    "performance": "/api/theater"
+  }
+}

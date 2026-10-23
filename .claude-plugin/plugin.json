@@ -1,8 +1,10 @@
 {
   "name": "vrman",
-  "version": "0.6.0",
-  "description": "VRMan 数字人：描述或照片生成 3D 头像（GLB，成人或儿童），文本加照片或头像生成说话视频（MP4）",
-  "author": { "name": "hypergraphdev" },
+  "version": "0.7.0",
+  "description": "Hello Genesis 世界创作：人物、素材检索、分步搭建、剧情演出、无限世界、存档与整剧 MP4 导出",
+  "author": {
+    "name": "hypergraphdev"
+  },
   "homepage": "https://github.com/hypergraphdev/vrman-skill",
   "license": "MIT"
 }

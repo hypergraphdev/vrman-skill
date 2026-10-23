@@ -1,0 +1,14 @@
+# Stories, acting and MP4
+
+Two authoring paths share the same compiler and runtime:
+
+1. Use `start_creation("write_story", payload)` for outline, casting and one segment at a time. Outline: `{action:"outline",text,lines:"精简"|"标准"|"扩写",scriptLanguage:"zh"|"en",language:"zh"|"en"}`. In an English interface/request, use English `scriptLanguage`; dialogue `language` remains the user's independent choice. Cast: `{action:"cast",story}`. Segment: `{action:"segment",story,start,carried?,place?,world?,note?,feedback?,owed?}`. Carry forward returned story updates, last positions, item ledger, pending goals and completed step index; never regenerate the whole story just to continue it.
+2. Author `vrman-script` JSON according to [script-format.md](script-format.md), using `search_library` IDs; call `compile_performance(script, save?)`. The compiler applies shared seating, serving, carrying, movement and casting rules. Inspect `gaps` and `notes`, and repair the authoring script when necessary.
+
+A replayable record is `{kind:"vrman-theater",title,era,story,segments:[{program,place,steps,lines,...}]}`. Save it with `manage_project("performance","save",payload=record)`; the entire validated record is stored atomically as a private copy. The response includes a replay URL. `edit_performance` changes a named set and adjusts people and props with its furniture; it does not simply teleport furniture under seated actors.
+
+`render_performance_video(identifier OR record, out_path?, width=1280, watermark=true)` renders all supplied segments through the actual studio replay, mixes dialogue and effects, captures the stage subtitles and location titles, then encodes H.264 video + AAC audio in an MP4 container. The output is a local file on the MCP computer, not a cloud URL. Default output is `~/vrman-output/` (repository mode uses `agent/output/`). Use the returned task to check progress and retrieve the file. The render runs in real time plus model loading/encoding; long performances take proportionately longer.
+
+The browser may internally record WebM; the exported file is transcoded, never merely renamed. Reference generation, scene loading and inter-segment waiting are not supposed to appear as empty waiting footage. Check warnings: missing voice audio fails delivery rather than quietly producing a silent play. The video is of the provided record; an unfinished story does not become a complete story just because its available segments rendered.
+
+Interactive branching must be resolved to a linear performance before exporting. A question awaiting input is not an automatic choice; do not invent the user's answer to make recording finish. Keep the replayable JSON as the editable source and MP4 as the rendered deliverable. For one talking portrait use `render_talking_video` instead; it does not render a multi-character play.

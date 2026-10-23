@@ -217,7 +217,7 @@ class StudioPage:
             context.add_cookies([token_cookie(base_url, token)])
         self.page = context.new_page()
         # 每次都在网址里写明素材库和人物类型：浏览器会记住上次选的，不写的话上一次的选择会带到这一次
-        self.page.goto(f'{base_url}/index.html?library={library}&profile={profile}#{workspace}', timeout=60000)
+        self.page.goto(f'{base_url}/studio.html?library={library}&profile={profile}#{workspace}', timeout=60000)
         self.page.wait_for_function(READY, timeout=90000)
         loaded = self.js('() => [window.studio.builder.libraryId, window.studio.builder.library.profile]')
         if loaded != ['refined-current', profile]:
